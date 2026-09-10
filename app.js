@@ -139,8 +139,21 @@ function updateHeroMetrics() {
   const settings = window.store ? window.store.getSettings() : {};
   const teams = window.store ? window.store.getTeams() : [];
 
+  const brandTitleEl = document.getElementById('brandTitleDisplay');
+  if (brandTitleEl && settings.tournamentTitle) {
+    brandTitleEl.innerHTML = `${settings.tournamentTitle} <span class="highlight">PORTAL</span>`;
+  }
+
+  const heroTitleEl = document.getElementById('heroTitleDisplay');
+  if (heroTitleEl && settings.tournamentTitle) {
+    heroTitleEl.innerHTML = settings.tournamentTitle;
+  }
+
   const prizeEl = document.getElementById('heroPrizePool');
   if (prizeEl) prizeEl.textContent = settings.prizePool || '₹50,000';
+
+  const feeEl = document.getElementById('heroEntryFee');
+  if (feeEl) feeEl.textContent = settings.entryFee || 'FREE';
 
   const descEl = document.getElementById('heroDescription');
   if (descEl && settings.description) descEl.textContent = settings.description;
@@ -201,6 +214,22 @@ function populateDynamicRoundDropdowns() {
     stageSelect.innerHTML = rounds.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
     if (currentVal && rounds.some(r => r.id === currentVal)) stageSelect.value = currentVal;
   }
+
+  // Populate Dynamic Groups in Dropdowns
+  const allGroups = window.store ? window.store.getAllGroups() : ['Group A', 'Group B', 'Group C', 'Group D'];
+  const grpIds = ['schGroup', 'bcGroup', 'trTargetGroup', 'scoreGroupSelect', 'standingsGroupSelect', 'confirmedGroupFilter'];
+
+  grpIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const currentVal = el.value;
+      const includeAllOption = (id === 'standingsGroupSelect' || id === 'confirmedGroupFilter');
+      let html = includeAllOption ? '<option value="all">All Groups</option>' : '';
+      html += allGroups.map(g => `<option value="${g}">${g}</option>`).join('');
+      el.innerHTML = html;
+      if (currentVal && (currentVal === 'all' || allGroups.includes(currentVal))) el.value = currentVal;
+    }
+  });
 }
 
 function renderPublicRoundsFlow() {
@@ -593,8 +622,8 @@ function renderPublicGroups() {
   const container = document.getElementById('publicSlotsContainer');
   if (!groupsTabBar || !container) return;
 
-  const groups = ['Group A', 'Group B', 'Group C', 'Group D'];
-  let activeGroup = groupsTabBar.querySelector('.stage-tab-btn.active')?.getAttribute('data-group') || 'Group A';
+  const groups = window.store ? window.store.getAllGroups() : ['Group A', 'Group B', 'Group C', 'Group D'];
+  let activeGroup = groupsTabBar.querySelector('.stage-tab-btn.active')?.getAttribute('data-group') || groups[0] || 'Group A';
 
   groupsTabBar.innerHTML = groups.map(g => `
     <button class="stage-tab-btn ${g === activeGroup ? 'active' : ''}" data-group="${g}">${g}</button>
@@ -710,9 +739,6 @@ window.handleAdminLoginDirectly = async function() {
     let isValid = false;
     if (window.store && typeof window.store.verifyAdminPin === 'function') {
       isValid = await window.store.verifyAdminPin(pin);
-    } else {
-      const cleanPin = pin.trim();
-      isValid = (cleanPin === 'REXADMIN2026' || cleanPin === 'ADMIN' || cleanPin === '1234');
     }
 
     if (isValid) {
@@ -899,16 +925,17 @@ function initAdminPanel() {
       e.preventDefault();
       const tournamentTitle = document.getElementById('admTournamentTitle')?.value.trim() || 'REX ESPORTS BGMI CHAMPIONSHIP';
       const prizePool = document.getElementById('admPrizePool').value.trim();
+      const entryFee = document.getElementById('admEntryFee')?.value.trim() || 'FREE';
       const totalSlots = parseInt(document.getElementById('admTotalSlots').value) || 64;
       const activeStageId = document.getElementById('admActiveStageId')?.value || 'round1';
       const headerStatusText = document.getElementById('admHeaderStatusText').value.trim();
       const description = document.getElementById('admDescription').value.trim();
 
-      await window.store.updateSettings({ tournamentTitle, prizePool, totalSlots, activeStageId, headerStatusText, description });
+      await window.store.updateSettings({ tournamentTitle, prizePool, entryFee, totalSlots, activeStageId, headerStatusText, description });
       updateHeroMetrics();
       renderPublicRoundsFlow();
       renderAdminRoundsTable();
-      showToast('Home page content & active stage updated live!', 'success');
+      showToast('Home page content, entry fee & active stage updated live!', 'success');
     });
   }
 
@@ -1059,6 +1086,9 @@ function renderAdminWebsiteContentForm() {
 
   const prizeIn = document.getElementById('admPrizePool');
   if (prizeIn) prizeIn.value = settings.prizePool || '₹50,000';
+
+  const feeIn = document.getElementById('admEntryFee');
+  if (feeIn) feeIn.value = settings.entryFee || 'FREE';
 
   const slotsIn = document.getElementById('admTotalSlots');
   if (slotsIn) slotsIn.value = settings.totalSlots || 64;
@@ -1290,7 +1320,7 @@ function renderAdminGroupsGrid() {
   if (!container) return;
 
   const capacity = window.store.getActiveLobbyCapacity();
-  const groups = ['Group A', 'Group B', 'Group C', 'Group D'];
+  const groups = window.store ? window.store.getAllGroups() : ['Group A', 'Group B', 'Group C', 'Group D'];
   const allTeams = window.store.getTeams().filter(t => t.status === 'Approved');
 
   container.innerHTML = groups.map(gName => {

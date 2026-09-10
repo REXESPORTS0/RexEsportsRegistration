@@ -45,7 +45,7 @@
           <i data-lucide="trophy"></i>
         </div>
         <div class="brand-text">
-          <span class="brand-title">REX <span class="highlight">ESPORTS</span></span>
+          <span class="brand-title" id="brandTitleDisplay">REX <span class="highlight">ESPORTS</span></span>
           <span class="brand-subtitle">BGMI TOURNAMENT PORTAL</span>
         </div>
       </div>
@@ -92,7 +92,7 @@
       <div class="hero-card">
         <div class="hero-content">
           <div class="hero-badge"><i data-lucide="sparkles"></i> OFFICIAL BGMI TOURNAMENT</div>
-          <h1 class="hero-title">REX ESPORTS <span class="text-gradient">BGMI CHAMPIONSHIP</span></h1>
+          <h1 class="hero-title" id="heroTitleDisplay">REX ESPORTS <span class="text-gradient">BGMI CHAMPIONSHIP</span></h1>
           <p class="hero-description" id="heroDescription">
             Register your team, track group slot allocations, check match schedules, view live point tables, and see your qualification status for upcoming rounds!
           </p>
@@ -101,6 +101,10 @@
             <div class="stat-card">
               <span class="stat-value" id="heroPrizePool">₹50,000</span>
               <span class="stat-label">PRIZE POOL</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value" id="heroEntryFee">FREE</span>
+              <span class="stat-label">ENTRY FEE</span>
             </div>
             <div class="stat-card">
               <span class="stat-value" id="heroRegisteredTeamsCount">0</span>
@@ -501,7 +505,7 @@
         <p>Restricted access for Tournament Organizers. Enter Security Key PIN.</p>
         
         <form id="adminLoginForm" onsubmit="window.handleAdminLoginDirectly(); return false;" class="pin-box mt-3">
-          <input type="password" id="adminPinInput" class="form-input text-center" placeholder="Enter Security Key PIN (Default: REXADMIN2026)" maxlength="30" autocomplete="current-password">
+          <input type="password" id="adminPinInput" class="form-input text-center" placeholder="Enter Admin Security Key PIN" maxlength="30" autocomplete="current-password">
           <button type="submit" class="btn btn-primary mt-3" id="adminLoginBtn" onclick="window.handleAdminLoginDirectly(); return false;">
             <i data-lucide="key-round"></i> UNLOCK ADMIN PANEL
           </button>
@@ -769,6 +773,7 @@
                     <option value="Miramar">Miramar (Desert)</option>
                     <option value="Sanhok">Sanhok (Jungle)</option>
                     <option value="Vikendi">Vikendi (Snow)</option>
+                    <option value="Rondo">Rondo (Modern)</option>
                   </select>
                 </div>
                 <div class="form-actions full-width mt-2">
@@ -899,6 +904,8 @@
                     <option value="Erangel">Erangel</option>
                     <option value="Miramar">Miramar</option>
                     <option value="Sanhok">Sanhok</option>
+                    <option value="Vikendi">Vikendi</option>
+                    <option value="Rondo">Rondo</option>
                   </select>
                 </div>
 
@@ -1009,8 +1016,12 @@
                     <input type="text" id="admPrizePool" class="form-input" placeholder="e.g. ₹50,000" required>
                   </div>
                   <div class="form-group">
+                    <label>Tournament Entry Fee *</label>
+                    <input type="text" id="admEntryFee" class="form-input" placeholder="e.g. FREE or ₹100 / Team" required>
+                  </div>
+                  <div class="form-group">
                     <label>Total Tournament Slots Limit *</label>
-                    <input type="number" id="admTotalSlots" class="form-input" value="64" min="8" max="500" required>
+                    <input type="number" id="admTotalSlots" class="form-input" value="64" min="1" required>
                   </div>
                   <div class="form-group full-width">
                     <label>Current Active Tournament Stage *</label>
@@ -1142,7 +1153,7 @@
 
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="data.js?v=50.0"></script>
-  <script src="app.js?v=50.0"></script>
+  <script src="data.js?v=52.0"></script>
+  <script src="app.js?v=52.0"></script>
 </body>
 </html>

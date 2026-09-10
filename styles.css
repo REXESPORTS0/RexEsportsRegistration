@@ -26,8 +26,8 @@
   --text-light: #94a3b8;
   --border-color: #e2e8f0;
 
-  --font-heading: 'Rajdhani', sans-serif;
-  --font-body: 'Outfit', sans-serif;
+  --font-heading: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro", "San Francisco", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro", "San Francisco", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 18px;

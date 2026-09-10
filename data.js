@@ -54,7 +54,9 @@ const INITIAL_BROADCASTS = [];
 const INITIAL_SCORES = [];
 
 const DEFAULT_SETTINGS = {
+  tournamentTitle: 'REX ESPORTS BGMI CHAMPIONSHIP',
   prizePool: '₹50,000',
+  entryFee: 'FREE',
   description: 'Register your team, track group slot allocations, check match schedules, view live point tables, and see your qualification status for upcoming rounds!',
   totalSlots: 64,
   headerStatusText: 'QUALIFIERS - ROUND 1 OPEN',
@@ -369,13 +371,14 @@ class DataStore {
         }
       }
 
-      // 6. Fetch Settings (Prize Pool, Description, Rules, PDF URL, Custom PIN, Championship Title)
+      // 6. Fetch Settings (Prize Pool, Description, Rules, PDF URL, Custom PIN, Championship Title, Entry Fee)
       const { data: setData, error: setErr } = await supabaseClient.from('settings').select('*');
       if (!setErr && Array.isArray(setData) && setData.length > 0) {
         const cloudSet = setData[0];
         this.state.settings = {
           tournamentTitle: cloudSet.tournamentTitle || cloudSet.tournamenttitle || this.state.settings?.tournamentTitle || 'REX ESPORTS BGMI CHAMPIONSHIP',
           prizePool: cloudSet.prizePool || cloudSet.prizepool || this.state.settings?.prizePool || '₹50,000',
+          entryFee: cloudSet.entryFee || cloudSet.entryfee || this.state.settings?.entryFee || 'FREE',
           description: cloudSet.description || this.state.settings?.description || 'Register your team...',
           totalSlots: parseInt(cloudSet.totalSlots || cloudSet.totalslots) || this.state.settings?.totalSlots || 64,
           headerStatusText: cloudSet.headerStatusText || cloudSet.headerstatustext || this.state.settings?.headerStatusText || 'QUALIFIERS - ROUND 1 OPEN',
@@ -426,6 +429,7 @@ class DataStore {
           id: 'main_settings',
           tournamenttitle: this.state.settings.tournamentTitle || 'REX ESPORTS BGMI CHAMPIONSHIP',
           prizepool: this.state.settings.prizePool,
+          entryfee: this.state.settings.entryFee,
           description: this.state.settings.description,
           totalslots: this.state.settings.totalSlots,
           headerstatustext: this.state.settings.headerStatusText,
@@ -438,6 +442,7 @@ class DataStore {
           id: 'main_settings',
           tournamentTitle: this.state.settings.tournamentTitle || 'REX ESPORTS BGMI CHAMPIONSHIP',
           prizePool: this.state.settings.prizePool,
+          entryFee: this.state.settings.entryFee,
           description: this.state.settings.description,
           totalSlots: this.state.settings.totalSlots,
           headerStatusText: this.state.settings.headerStatusText,
@@ -460,10 +465,9 @@ class DataStore {
   async verifyAdminPin(enteredPin) {
     if (!enteredPin) return false;
     const p = enteredPin.trim();
-    if (p === 'REXADMIN2026') return true;
     const hashed = await sha256(p);
     const targetHash = this.state.settings?.adminPinHash || this.state.adminPinHash || DEFAULT_PIN_HASH;
-    return hashed === targetHash || p === 'ADMIN' || p === '1234';
+    return hashed === targetHash;
   }
 
   async setAdminPin(newPin) {
@@ -495,6 +499,31 @@ class DataStore {
         console.warn('Supabase database wipe error:', e);
       }
     }
+  }
+
+  getGroupNameFromIndex(idx) {
+    if (idx < 26) {
+      return `Group ${String.fromCharCode(65 + idx)}`;
+    }
+    const first = String.fromCharCode(65 + Math.floor(idx / 26) - 1);
+    const second = String.fromCharCode(65 + (idx % 26));
+    return `Group ${first}${second}`;
+  }
+
+  getAllGroups() {
+    const teams = this.getTeams().filter(t => t.status === 'Approved');
+    const cap = this.getActiveLobbyCapacity();
+    const minGroupsNeeded = Math.max(4, Math.ceil(teams.length / cap));
+
+    const groupSet = new Set();
+    for (let i = 0; i < minGroupsNeeded; i++) {
+      groupSet.add(this.getGroupNameFromIndex(i));
+    }
+    teams.forEach(t => {
+      if (t.group) groupSet.add(t.group);
+    });
+
+    return Array.from(groupSet);
   }
 
   getRounds() { return this.state.rounds || INITIAL_ROUNDS; }
@@ -595,9 +624,8 @@ class DataStore {
 
     const cap = this.getActiveLobbyCapacity();
     if (!newTeam.group) {
-      const groups = ['Group A', 'Group B', 'Group C', 'Group D'];
-      const groupIdx = Math.floor(this.getTeams().length / cap) % groups.length;
-      newTeam.group = groups[groupIdx];
+      const groupIdx = Math.floor(this.getTeams().length / cap);
+      newTeam.group = this.getGroupNameFromIndex(groupIdx);
       const inGrp = this.getTeams().filter(t => t.group === newTeam.group);
       newTeam.slot = (inGrp.length % cap) + 1;
     }
@@ -681,17 +709,17 @@ class DataStore {
   autoAllocateGroups() {
     const cap = this.getActiveLobbyCapacity();
     const approved = this.getTeams().filter(t => t.status === 'Approved');
-    const groupNames = ['Group A', 'Group B', 'Group C', 'Group D'];
 
     approved.forEach((team, idx) => {
       const gIdx = Math.floor(idx / cap);
       const sIdx = (idx % cap) + 1;
-      team.group = groupNames[gIdx] || `Group ${gIdx + 1}`;
+      team.group = this.getGroupNameFromIndex(gIdx);
       team.slot = sIdx;
       this.syncToSupabase(team);
     });
 
     this.save();
+    window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
   }
 
   getTeamsForRound(roundId) {
