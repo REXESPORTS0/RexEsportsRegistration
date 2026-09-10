@@ -48,72 +48,10 @@ const INITIAL_ROUNDS = [
   { id: 'finals', name: 'Grand Finals', autoQualifyTopN: 0, lobbyCapacity: 16 }
 ];
 
-const INITIAL_TEAMS = [
-  {
-    code: 'REX-8M2P9X',
-    teamName: 'TEAM GODLIKE',
-    tag: 'GODL',
-    logo: '👑',
-    capName: 'Chetan Chandgude',
-    capPhone: '9876543210',
-    capEmail: 'kronten@godlike.gg',
-    state: 'Maharashtra',
-    players: [
-      { name: 'GODLxJONATHAN', id: '5123456781', role: 'Captain / IGL' },
-      { name: 'GODLxNEO', id: '5123456782', role: 'Fragger' },
-      { name: 'GODLxZGOD', id: '5123456783', role: 'Support' },
-      { name: 'GODLxSHADOW', id: '5123456784', role: 'Assault' }
-    ],
-    group: 'Group A',
-    slot: 1,
-    status: 'Approved',
-    currentStage: 'round2',
-    qualificationStatus: 'Qualified for Round 2',
-    regDate: '2026-09-08T10:00:00'
-  },
-  {
-    code: 'REX-K47Q9Z',
-    teamName: 'TEAM SOUL',
-    tag: 'SOUL',
-    logo: '🔥',
-    capName: 'Naman Mathur',
-    capPhone: '9876543211',
-    capEmail: 'mortal@s8ul.gg',
-    state: 'Mumbai',
-    players: [
-      { name: 'SOULxMORTAL', id: '5123456791', role: 'Captain / IGL' },
-      { name: 'SOULxGOBLIN', id: '5123456792', role: 'Fragger' },
-      { name: 'SOULxHECTOR', id: '5123456793', role: 'Support' },
-      { name: 'SOULxAKOP', id: '5123456794', role: 'Assault' }
-    ],
-    group: 'Group A',
-    slot: 2,
-    status: 'Approved',
-    currentStage: 'round2',
-    qualificationStatus: 'Qualified for Round 2',
-    regDate: '2026-09-08T10:15:00'
-  }
-];
-
-const INITIAL_SCHEDULES = [
-  { id: 'SCH-1', group: 'Group A', stage: 'round1', matchNum: 'Match #1', time: '2026-09-12T18:00', map: 'Erangel' }
-];
-
-const INITIAL_BROADCASTS = [
-  { id: 'BC-1', group: 'Group A', stage: 'round1', roomId: '8899452', roomPass: 'rex786', matchTime: '2026-09-12T18:00', map: 'Erangel', isLive: true }
-];
-
-const INITIAL_SCORES = [
-  {
-    stage: 'round1',
-    group: 'Group A',
-    matchNum: 'Match 1',
-    scores: [
-      { teamCode: 'REX-8M2P9X', teamName: 'TEAM GODLIKE', rank: 1, kills: 14 },
-      { teamCode: 'REX-K47Q9Z', teamName: 'TEAM SOUL', rank: 2, kills: 8 }
-    ]
-  }
-];
+const INITIAL_TEAMS = [];
+const INITIAL_SCHEDULES = [];
+const INITIAL_BROADCASTS = [];
+const INITIAL_SCORES = [];
 
 const DEFAULT_STATE = {
   teams: INITIAL_TEAMS,
@@ -228,7 +166,7 @@ class DataStore {
     return false;
   }
 
-  // Fetch all Cloud Data (Teams, Broadcasts, Schedules, Scores, Rounds) from Supabase
+  // Fetch all Cloud Data (Teams, Broadcasts, Schedules, Scores, Rounds) from Supabase - Cloud is Authority
   async syncFromSupabaseCloud() {
     if (!supabaseClient) return;
     try {
@@ -236,8 +174,8 @@ class DataStore {
 
       // 1. Fetch Teams
       const { data: teamsData, error: teamsErr } = await supabaseClient.from('teams').select('*');
-      if (!teamsErr && teamsData && teamsData.length > 0) {
-        const cloudTeamsNormalized = teamsData.map(cloudTeam => ({
+      if (!teamsErr && Array.isArray(teamsData)) {
+        this.state.teams = teamsData.map(cloudTeam => ({
           code: cloudTeam.code,
           teamName: cloudTeam.teamName || cloudTeam.teamname || 'Team',
           tag: cloudTeam.tag || '',
@@ -252,85 +190,56 @@ class DataStore {
           currentStage: cloudTeam.currentStage || cloudTeam.currentstage || 'round1',
           players: typeof cloudTeam.players === 'string' ? JSON.parse(cloudTeam.players) : (cloudTeam.players || [])
         }));
-
-        cloudTeamsNormalized.forEach(ct => {
-          const idx = this.state.teams.findIndex(t => t.code === ct.code);
-          if (idx >= 0) {
-            this.state.teams[idx] = ct;
-          } else {
-            this.state.teams.unshift(ct);
-          }
-        });
       }
 
       // 2. Fetch Broadcasts (Room ID & Passwords)
       const { data: bcData, error: bcErr } = await supabaseClient.from('broadcasts').select('*');
-      if (!bcErr && bcData && bcData.length > 0) {
-        bcData.forEach(bc => {
-          const normalized = {
-            id: bc.id,
-            group: bc.group,
-            stage: bc.stage,
-            roomId: bc.roomId || bc.roomid || '',
-            roomPass: bc.roomPass || bc.roompass || '',
-            matchTime: bc.matchTime || bc.matchtime || '',
-            map: bc.map || 'Erangel',
-            isLive: bc.isLive !== false
-          };
-          const idx = this.state.broadcasts.findIndex(b => b.group === normalized.group && b.stage === normalized.stage);
-          if (idx >= 0) this.state.broadcasts[idx] = normalized;
-          else this.state.broadcasts.unshift(normalized);
-        });
+      if (!bcErr && Array.isArray(bcData)) {
+        this.state.broadcasts = bcData.map(bc => ({
+          id: bc.id,
+          group: bc.group,
+          stage: bc.stage,
+          roomId: bc.roomId || bc.roomid || '',
+          roomPass: bc.roomPass || bc.roompass || '',
+          matchTime: bc.matchTime || bc.matchtime || '',
+          map: bc.map || 'Erangel',
+          isLive: bc.isLive !== false
+        }));
       }
 
       // 3. Fetch Schedules
       const { data: schData, error: schErr } = await supabaseClient.from('schedules').select('*');
-      if (!schErr && schData && schData.length > 0) {
-        schData.forEach(sch => {
-          const normalized = {
-            id: sch.id,
-            group: sch.group,
-            stage: sch.stage,
-            matchNum: sch.matchNum || sch.matchnum || 'Match 1',
-            time: sch.time,
-            map: sch.map || 'Erangel'
-          };
-          const idx = this.state.schedules.findIndex(s => s.id === normalized.id);
-          if (idx >= 0) this.state.schedules[idx] = normalized;
-          else this.state.schedules.unshift(normalized);
-        });
+      if (!schErr && Array.isArray(schData)) {
+        this.state.schedules = schData.map(sch => ({
+          id: sch.id,
+          group: sch.group,
+          stage: sch.stage,
+          matchNum: sch.matchNum || sch.matchnum || 'Match 1',
+          time: sch.time,
+          map: sch.map || 'Erangel'
+        }));
       }
 
       // 4. Fetch Match Scores (Points Table)
       const { data: scData, error: scErr } = await supabaseClient.from('match_scores').select('*');
-      if (!scErr && scData && scData.length > 0) {
-        scData.forEach(sc => {
-          const normalized = {
-            stage: sc.stage,
-            group: sc.group,
-            matchNum: sc.matchNum || sc.matchnum,
-            scores: typeof sc.scores === 'string' ? JSON.parse(sc.scores) : (sc.scores || [])
-          };
-          const idx = this.state.matchScores.findIndex(m => m.stage === normalized.stage && m.group === normalized.group && m.matchNum === normalized.matchNum);
-          if (idx >= 0) this.state.matchScores[idx] = normalized;
-          else this.state.matchScores.unshift(normalized);
-        });
+      if (!scErr && Array.isArray(scData)) {
+        this.state.matchScores = scData.map(sc => ({
+          stage: sc.stage,
+          group: sc.group,
+          matchNum: sc.matchNum || sc.matchnum,
+          scores: typeof sc.scores === 'string' ? JSON.parse(sc.scores) : (sc.scores || [])
+        }));
       }
 
       // 5. Fetch Rounds
       const { data: rndData, error: rndErr } = await supabaseClient.from('rounds').select('*');
-      if (!rndErr && rndData && rndData.length > 0) {
-        rndData.forEach(r => {
-          const normalized = {
-            id: r.id,
-            name: r.name,
-            autoQualifyTopN: parseInt(r.autoQualifyTopN || r.autoqualifytopn) || 4,
-            lobbyCapacity: parseInt(r.lobbyCapacity || r.lobbycapacity) || 16
-          };
-          const idx = this.state.rounds.findIndex(rnd => rnd.id === normalized.id);
-          if (idx >= 0) this.state.rounds[idx] = normalized;
-          else this.state.rounds.push(normalized);
-        });
+      if (!rndErr && Array.isArray(rndData) && rndData.length > 0) {
+        this.state.rounds = rndData.map(r => ({
+          id: r.id,
+          name: r.name,
+          autoQualifyTopN: parseInt(r.autoQualifyTopN || r.autoqualifytopn) || 4,
+          lobbyCapacity: parseInt(r.lobbyCapacity || r.lobbycapacity) || 16
+        }));
       }
 
       const afterStateStr = JSON.stringify(this.state);
