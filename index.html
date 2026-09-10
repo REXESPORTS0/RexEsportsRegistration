@@ -24,7 +24,7 @@
   <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <link rel="stylesheet" href="styles.css?v=17.0">
+  <link rel="stylesheet" href="styles.css?v=18.0">
 </head>
 <body class="light-blue-theme">
 
@@ -482,12 +482,12 @@
         <h2>ORG OWNER ADMIN CONTROL CENTER</h2>
         <p>Restricted access for Tournament Organizers. Enter Security Key PIN.</p>
         
-        <div class="pin-box mt-3">
-          <input type="password" id="adminPinInput" class="form-input text-center" placeholder="Enter Security Key PIN (Default: REXADMIN2026)" maxlength="30">
-          <button type="button" class="btn btn-primary mt-3" id="adminLoginBtn">
+        <form id="adminLoginForm" onsubmit="window.handleAdminLoginDirectly(); return false;" class="pin-box mt-3">
+          <input type="password" id="adminPinInput" class="form-input text-center" placeholder="Enter Security Key PIN (Default: REXADMIN2026)" maxlength="30" autocomplete="current-password">
+          <button type="submit" class="btn btn-primary mt-3" id="adminLoginBtn" onclick="window.handleAdminLoginDirectly(); return false;">
             <i data-lucide="key-round"></i> UNLOCK ADMIN PANEL
           </button>
-        </div>
+        </form>
         <small class="text-muted d-block mt-3" style="font-size:0.75rem;">
           <i data-lucide="shield-check"></i> Master PIN Protected. Secret key shortcut: <strong>Ctrl + Shift + A</strong>
         </small>
@@ -1018,7 +1018,7 @@
 
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="data.js?v=17.0"></script>
-  <script src="app.js?v=17.0"></script>
+  <script src="data.js?v=18.0"></script>
+  <script src="app.js?v=18.0"></script>
 </body>
 </html>
