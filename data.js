@@ -129,10 +129,32 @@ class DataStore {
   constructor() {
     this.state = this.load();
     this.syncFromSupabaseCloud();
-    // Auto-poll Supabase Cloud every 10 seconds for real-time updates across mobile & desktop!
+    this.initRealtimeSync();
+
+    // Secondary auto-poll every 10 seconds as backup
     setInterval(() => {
       this.syncFromSupabaseCloud();
     }, 10000);
+  }
+
+  // Initialize Realtime WebSocket Listener for instant (<500ms) cross-device sync
+  initRealtimeSync() {
+    if (!supabaseClient) return;
+    try {
+      supabaseClient
+        .channel('public:realtime-db-changes')
+        .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+          console.log('⚡ Realtime Supabase Change Pushed!', payload);
+          this.syncFromSupabaseCloud();
+        })
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('⚡ Supabase Realtime Sync Engine Active & Connected!');
+          }
+        });
+    } catch (e) {
+      console.warn('Realtime subscription error:', e);
+    }
   }
 
   load() {
