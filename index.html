@@ -27,7 +27,7 @@
   <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <link rel="stylesheet" href="styles.css?v=40.0">
+  <link rel="stylesheet" href="styles.css?v=50.0">
 </head>
 <body class="light-blue-theme">
 
@@ -1013,6 +1013,10 @@
                     <input type="number" id="admTotalSlots" class="form-input" value="64" min="8" max="500" required>
                   </div>
                   <div class="form-group full-width">
+                    <label>Current Active Tournament Stage *</label>
+                    <select id="admActiveStageId" class="form-select" required></select>
+                  </div>
+                  <div class="form-group full-width">
                     <label>Top Header Live Banner Text *</label>
                     <input type="text" id="admHeaderStatusText" class="form-input" placeholder="e.g. QUALIFIERS - ROUND 1 OPEN" required>
                   </div>
@@ -1138,7 +1142,7 @@
 
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="data.js?v=40.0"></script>
-  <script src="app.js?v=40.0"></script>
+  <script src="data.js?v=50.0"></script>
+  <script src="app.js?v=50.0"></script>
 </body>
 </html>

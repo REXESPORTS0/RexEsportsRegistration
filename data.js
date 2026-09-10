@@ -252,7 +252,7 @@ class DataStore {
         console.warn('Teams fetch warning:', teamsErr.message);
       }
 
-      // 2. Fetch Broadcasts (Room ID & Passwords + Failover Settings)
+      // 2. Fetch Broadcasts (Room ID & Passwords + Failover Settings & Failover Rounds)
       const { data: bcData, error: bcErr } = await supabaseClient.from('broadcasts').select('*');
       if (!bcErr && Array.isArray(bcData)) {
         // Check for Failover System Settings Row in broadcasts table
@@ -271,9 +271,25 @@ class DataStore {
           }
         }
 
+        // Check for Failover System Rounds Row in broadcasts table
+        const sysRoundsRow = bcData.find(b => b.id === 'SYS_ROUNDS');
+        if (sysRoundsRow) {
+          const rawRoundsJson = sysRoundsRow.roomId || sysRoundsRow.roomid;
+          if (rawRoundsJson) {
+            try {
+              const cloudRounds = JSON.parse(rawRoundsJson);
+              if (Array.isArray(cloudRounds) && cloudRounds.length > 0) {
+                this.state.rounds = cloudRounds;
+              }
+            } catch (e) {
+              console.warn('Failover rounds parse warning:', e);
+            }
+          }
+        }
+
         const deletedBcIds = this.state.deletedBroadcastIds || [];
         const validBc = bcData.filter(b => {
-          if (!b.id || b.id === 'SYS_SETTINGS') return false;
+          if (!b.id || b.id === 'SYS_SETTINGS' || b.id === 'SYS_ROUNDS') return false;
           if (deletedBcIds.includes(b.id)) return false;
           const roomid = (b.roomId || b.roomid || '').toString();
           const roompass = (b.roomPass || b.roompass || '').toString();
@@ -348,7 +364,7 @@ class DataStore {
             autoQualifyTopN: parseInt(r.autoQualifyTopN || r.autoqualifytopn) || 4,
             lobbyCapacity: parseInt(r.lobbyCapacity || r.lobbycapacity) || 16
           }));
-        } else {
+        } else if (deletedRndIds.length > 0) {
           this.state.rounds = (this.state.rounds || []).filter(r => !deletedRndIds.includes(r.id));
         }
       }
@@ -488,24 +504,42 @@ class DataStore {
     return currentRound ? currentRound.lobbyCapacity : 16;
   }
 
+  async syncRoundsToSupabase() {
+    this.save();
+    window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
+    if (!supabaseClient) return;
+    try {
+      // Failover Channel: Store full JSON in broadcasts table (Guaranteed active table)
+      const roundsJson = JSON.stringify(this.state.rounds);
+      const sysRndLower = { id: 'SYS_ROUNDS', group: 'SYS_ROUNDS', stage: 'SYS_ROUNDS', roomid: roundsJson, roompass: 'SYS_ROUNDS', islive: false };
+      const sysRndCamel = { id: 'SYS_ROUNDS', group: 'SYS_ROUNDS', stage: 'SYS_ROUNDS', roomId: roundsJson, roomPass: 'SYS_ROUNDS', isLive: false };
+      let bcRes = await supabaseClient.from('broadcasts').upsert([sysRndLower], { onConflict: 'id' });
+      if (bcRes.error) await supabaseClient.from('broadcasts').upsert([sysRndCamel], { onConflict: 'id' });
+
+      // Primary Channel: Store each round in rounds table
+      if (Array.isArray(this.state.rounds)) {
+        for (const rnd of this.state.rounds) {
+          await supabaseClient.from('rounds').upsert([{
+            id: rnd.id,
+            name: rnd.name,
+            autoQualifyTopN: rnd.autoQualifyTopN,
+            autoqualifytopn: rnd.autoQualifyTopN,
+            lobbyCapacity: rnd.lobbyCapacity,
+            lobbycapacity: rnd.lobbyCapacity
+          }], { onConflict: 'id' });
+        }
+      }
+      console.log('⚡ Dynamic Rounds synced live to Supabase Cloud!');
+    } catch (e) {
+      console.warn('Rounds sync warning:', e);
+    }
+  }
+
   addRound(name, autoQualifyTopN = 4, lobbyCapacity = 16) {
     const id = `rnd_${Date.now()}`;
     const roundObj = { id, name, autoQualifyTopN, lobbyCapacity };
     this.state.rounds.push(roundObj);
-    this.save();
-
-    if (supabaseClient) {
-      supabaseClient.from('rounds').upsert([{
-        id: roundObj.id,
-        name: roundObj.name,
-        autoQualifyTopN: roundObj.autoQualifyTopN,
-        autoqualifytopn: roundObj.autoQualifyTopN,
-        lobbyCapacity: roundObj.lobbyCapacity,
-        lobbycapacity: roundObj.lobbyCapacity
-      }], { onConflict: 'id' }).then(() => {
-        console.log('⚡ Round synced to Supabase Cloud:', name);
-      }).catch(e => console.warn('Round sync warning:', e));
-    }
+    this.syncRoundsToSupabase();
     return id;
   }
 
@@ -513,20 +547,7 @@ class DataStore {
     const rnd = this.state.rounds.find(r => r.id === id);
     if (rnd) {
       Object.assign(rnd, updatedFields);
-      this.save();
-
-      if (supabaseClient) {
-        supabaseClient.from('rounds').upsert([{
-          id: rnd.id,
-          name: rnd.name,
-          autoQualifyTopN: rnd.autoQualifyTopN,
-          autoqualifytopn: rnd.autoQualifyTopN,
-          lobbyCapacity: rnd.lobbyCapacity,
-          lobbycapacity: rnd.lobbyCapacity
-        }], { onConflict: 'id' }).then(() => {
-          console.log('⚡ Round updated in Supabase Cloud:', id);
-        }).catch(e => console.warn('Round update cloud warning:', e));
-      }
+      this.syncRoundsToSupabase();
     }
   }
 
@@ -536,8 +557,7 @@ class DataStore {
     if (!this.state.deletedRoundIds.includes(id)) this.state.deletedRoundIds.push(id);
 
     this.state.rounds = this.state.rounds.filter(r => r.id !== id);
-    this.save();
-    window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
+    await this.syncRoundsToSupabase();
 
     if (supabaseClient) {
       try {

@@ -193,6 +193,14 @@ function populateDynamicRoundDropdowns() {
       if (currentVal && rounds.some(r => r.id === currentVal)) el.value = currentVal;
     }
   });
+
+  const stageSelect = document.getElementById('admActiveStageId');
+  if (stageSelect) {
+    const settings = window.store ? window.store.getSettings() : {};
+    const currentVal = stageSelect.value || settings.activeStageId;
+    stageSelect.innerHTML = rounds.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+    if (currentVal && rounds.some(r => r.id === currentVal)) stageSelect.value = currentVal;
+  }
 }
 
 function renderPublicRoundsFlow() {
@@ -200,15 +208,31 @@ function renderPublicRoundsFlow() {
   if (!container) return;
 
   const rounds = window.store ? window.store.getRounds() : [];
-  container.innerHTML = rounds.map((r, idx) => `
-    <div class="flow-item ${idx === rounds.length - 1 ? 'gold' : idx === 0 ? 'active' : ''}">
-      <div class="flow-num">${idx === rounds.length - 1 ? '🏆' : (idx + 1)}</div>
-      <div>
-        <h4>${r.name} (${r.lobbyCapacity} Slots/Lobby)</h4>
-        <p>${r.autoQualifyTopN > 0 ? `Top ${r.autoQualifyTopN} teams per group advance.` : 'Final showdown for Championship Title & Prize Pool!'}</p>
+  const settings = window.store ? window.store.getSettings() : {};
+  const activeStageId = settings.activeStageId || (rounds[0] ? rounds[0].id : 'round1');
+
+  if (rounds.length === 0) {
+    container.innerHTML = `<p class="text-muted">No tournament stages defined yet.</p>`;
+    return;
+  }
+
+  container.innerHTML = rounds.map((r, idx) => {
+    const isActive = r.id === activeStageId;
+    const isGold = idx === rounds.length - 1;
+
+    return `
+      <div class="flow-item ${isGold ? 'gold' : isActive ? 'active' : ''}">
+        <div class="flow-num">${isGold ? '🏆' : (idx + 1)}</div>
+        <div>
+          <h4>
+            ${r.name} (${r.lobbyCapacity} Slots/Lobby) 
+            ${isActive ? '<span style="font-size:0.7rem; background:#00f2fe; color:#000; padding:2px 6px; border-radius:12px; margin-left:6px; font-weight:bold;">LIVE STAGE</span>' : ''}
+          </h4>
+          <p>${r.autoQualifyTopN > 0 ? `Top ${r.autoQualifyTopN} teams per group advance.` : 'Final showdown for Championship Title & Prize Pool!'}</p>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 /* ==========================================================================
@@ -876,12 +900,15 @@ function initAdminPanel() {
       const tournamentTitle = document.getElementById('admTournamentTitle')?.value.trim() || 'REX ESPORTS BGMI CHAMPIONSHIP';
       const prizePool = document.getElementById('admPrizePool').value.trim();
       const totalSlots = parseInt(document.getElementById('admTotalSlots').value) || 64;
+      const activeStageId = document.getElementById('admActiveStageId')?.value || 'round1';
       const headerStatusText = document.getElementById('admHeaderStatusText').value.trim();
       const description = document.getElementById('admDescription').value.trim();
 
-      await window.store.updateSettings({ tournamentTitle, prizePool, totalSlots, headerStatusText, description });
+      await window.store.updateSettings({ tournamentTitle, prizePool, totalSlots, activeStageId, headerStatusText, description });
       updateHeroMetrics();
-      showToast('Home page content & prize pool updated live!', 'success');
+      renderPublicRoundsFlow();
+      renderAdminRoundsTable();
+      showToast('Home page content & active stage updated live!', 'success');
     });
   }
 
@@ -1025,6 +1052,7 @@ function renderAdminDashboard() {
 
 function renderAdminWebsiteContentForm() {
   const settings = window.store ? window.store.getSettings() : {};
+  const rounds = window.store ? window.store.getRounds() : [];
   
   const titleIn = document.getElementById('admTournamentTitle');
   if (titleIn) titleIn.value = settings.tournamentTitle || 'REX ESPORTS BGMI CHAMPIONSHIP';
@@ -1034,6 +1062,11 @@ function renderAdminWebsiteContentForm() {
 
   const slotsIn = document.getElementById('admTotalSlots');
   if (slotsIn) slotsIn.value = settings.totalSlots || 64;
+
+  const stageSelect = document.getElementById('admActiveStageId');
+  if (stageSelect) {
+    stageSelect.innerHTML = rounds.map(r => `<option value="${r.id}" ${r.id === settings.activeStageId ? 'selected' : ''}>${r.name}</option>`).join('');
+  }
 
   const headerIn = document.getElementById('admHeaderStatusText');
   if (headerIn) headerIn.value = settings.headerStatusText || 'QUALIFIERS - ROUND 1 OPEN';
@@ -1047,6 +1080,54 @@ function renderAdminWebsiteContentForm() {
   const pdfIn = document.getElementById('admRulesPdfUrl');
   if (pdfIn) pdfIn.value = settings.rulesPdfUrl || '';
 }
+
+function renderAdminRoundsTable() {
+  const tbody = document.getElementById('adminRoundsTableBody');
+  if (!tbody) return;
+
+  const rounds = window.store.getRounds();
+  const settings = window.store.getSettings();
+
+  tbody.innerHTML = rounds.map(r => {
+    const isActive = r.id === settings.activeStageId;
+    return `
+      <tr style="${isActive ? 'background: rgba(0, 242, 254, 0.08);' : ''}">
+        <td>
+          <strong>${r.name}</strong>
+          ${isActive ? '<span class="badge blue ms-2" style="margin-left:6px; font-weight:700;">LIVE STAGE</span>' : ''}
+        </td>
+        <td><span class="badge blue">Top ${r.autoQualifyTopN} Advance</span></td>
+        <td><strong>${r.lobbyCapacity} Slots</strong></td>
+        <td>
+          ${!isActive ? `
+            <button class="btn btn-secondary btn-sm" onclick="setActiveStageFromAdmin('${r.id}')" style="margin-right:4px;">
+              <i data-lucide="check-circle"></i> Set Active
+            </button>
+          ` : `
+            <span class="badge green" style="margin-right:4px;">ACTIVE</span>
+          `}
+          <button class="btn btn-danger btn-sm" onclick="deleteRoundFromAdmin('${r.id}')">
+            <i data-lucide="trash-2"></i> Delete
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+window.setActiveStageFromAdmin = async function(id) {
+  if (window.store) {
+    await window.store.updateSettings({ activeStageId: id });
+    renderAdminRoundsTable();
+    updateHeroMetrics();
+    renderPublicRoundsFlow();
+    populateDynamicRoundDropdowns();
+    renderAdminWebsiteContentForm();
+    showToast(`Active Tournament Stage set to "${window.store.getRoundById(id)?.name}"!`, 'success');
+  }
+};
 
 window.resetAllDataFromAdmin = async function() {
   const confirmText = prompt('⚠️ WARNING: This will permanently DELETE ALL TEAMS, MATCH SCHEDULES, BROADCASTS, and MATCH SCORES from Supabase Cloud Database to start a fresh registration!\n\nType RESET to confirm deletion:');
