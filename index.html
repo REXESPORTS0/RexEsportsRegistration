@@ -530,9 +530,14 @@
             <button class="admin-subtab" data-subtab="website-content-mgr"><i data-lucide="settings"></i> Content, Rules & Security</button>
           </div>
 
-          <button class="btn btn-danger btn-sm" id="adminLogoutBtn">
-            <i data-lucide="log-out"></i> Logout
-          </button>
+          <div class="admin-top-actions" style="display:flex; gap:0.5rem; align-items:center;">
+            <button class="btn btn-danger btn-sm" onclick="window.resetAllDataFromAdmin()">
+              <i data-lucide="trash-2"></i> RESET ALL DATA (START FRESH)
+            </button>
+            <button class="btn btn-secondary btn-sm" id="adminLogoutBtn">
+              <i data-lucide="log-out"></i> Logout
+            </button>
+          </div>
         </div>
 
         <div class="grid-4col mb-4">
@@ -1121,7 +1126,7 @@
 
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="data.js?v=25.0"></script>
-  <script src="app.js?v=25.0"></script>
+  <script src="data.js?v=26.0"></script>
+  <script src="app.js?v=26.0"></script>
 </body>
 </html>

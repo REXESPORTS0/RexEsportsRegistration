@@ -20,7 +20,7 @@ if (window.supabase && SUPABASE_URL !== 'YOUR_SUPABASE_PROJECT_URL') {
   }
 }
 
-const STORAGE_KEY = 'REX_BGMI_TOURNAMENT_DATA_V6';
+const STORAGE_KEY = 'REX_BGMI_TOURNAMENT_DATA_V7';
 
 async function sha256(message) {
   const msgBuffer = new TextEncoder().encode(message);
@@ -114,7 +114,20 @@ class DataStore {
   load() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        parsed.settings = Object.assign({}, DEFAULT_SETTINGS, parsed.settings || {});
+        parsed.teams = parsed.teams || [];
+        parsed.rounds = parsed.rounds || INITIAL_ROUNDS;
+        parsed.schedules = parsed.schedules || [];
+        parsed.broadcasts = parsed.broadcasts || [];
+        parsed.matchScores = parsed.matchScores || [];
+        parsed.deletedTeamCodes = parsed.deletedTeamCodes || [];
+        parsed.deletedScheduleIds = parsed.deletedScheduleIds || [];
+        parsed.deletedBroadcastIds = parsed.deletedBroadcastIds || [];
+        parsed.deletedRoundIds = parsed.deletedRoundIds || [];
+        return parsed;
+      }
     } catch (e) {
       console.warn('LocalStorage load error:', e);
     }
@@ -417,6 +430,31 @@ class DataStore {
     const hashed = await sha256(newPin.trim());
     this.state.adminPinHash = hashed;
     await this.updateSettings({ adminPinHash: hashed });
+  }
+
+  async resetAllDataFresh() {
+    this.state.teams = [];
+    this.state.schedules = [];
+    this.state.broadcasts = [];
+    this.state.matchScores = [];
+    this.state.deletedTeamCodes = [];
+    this.state.deletedScheduleIds = [];
+    this.state.deletedBroadcastIds = [];
+    this.state.deletedRoundIds = [];
+    this.save();
+    window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
+
+    if (supabaseClient) {
+      try {
+        await supabaseClient.from('teams').delete().neq('code', 'IMPOSSIBLE_CODE_XYZ_999');
+        await supabaseClient.from('schedules').delete().neq('id', 'IMPOSSIBLE_ID_XYZ_999');
+        await supabaseClient.from('broadcasts').delete().neq('id', 'IMPOSSIBLE_ID_XYZ_999');
+        await supabaseClient.from('match_scores').delete().neq('stage', 'IMPOSSIBLE_STAGE_XYZ_999');
+        console.log('⚡ All Supabase Cloud tables wiped clean for fresh registrations!');
+      } catch (e) {
+        console.warn('Supabase database wipe error:', e);
+      }
+    }
   }
 
   getRounds() { return this.state.rounds || INITIAL_ROUNDS; }

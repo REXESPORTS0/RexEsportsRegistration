@@ -1046,6 +1046,20 @@ function renderAdminWebsiteContentForm() {
   if (pdfIn) pdfIn.value = settings.rulesPdfUrl || '';
 }
 
+window.resetAllDataFromAdmin = async function() {
+  const confirmText = prompt('⚠️ WARNING: This will permanently DELETE ALL TEAMS, MATCH SCHEDULES, BROADCASTS, and MATCH SCORES from Supabase Cloud Database to start a fresh registration!\n\nType RESET to confirm deletion:');
+  if (confirmText && confirmText.trim().toUpperCase() === 'RESET') {
+    if (window.store) await window.store.resetAllDataFresh();
+    renderAdminDashboard();
+    initConfirmedTeamsGallery();
+    initQualifiedTeamsHub();
+    renderPublicGroups();
+    renderPublicStandings();
+    updateHeroMetrics();
+    showToast('All tournament data wiped clean! Ready for fresh registrations.', 'success');
+  }
+};
+
 function renderAdminTeamsTable() {
   const tbody = document.getElementById('adminTeamsTableBody');
   const searchInput = document.getElementById('adminTeamSearch');
