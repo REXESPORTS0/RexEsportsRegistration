@@ -1,6 +1,24 @@
 /* ==========================================================================
-   REX ESPORTS - DATA STORE & STRICT MULTI-STAGE QUALIFICATION ENGINE
+   REX ESPORTS - DATA STORE, SUPABASE CLOUD SYNC & LOCAL PERSISTENCE ENGINE
    ========================================================================== */
+
+// ==========================================================================
+// 🔑 SUPABASE CLOUD DATABASE CONFIGURATION
+// Paste your Project URL and anon public Key from Supabase Dashboard:
+// Settings (gear icon) ➔ API ➔ Project URL & Project API Key (anon/public)
+// ==========================================================================
+const SUPABASE_URL = 'https://arhnazzejybqjjhjigyq.supabase.co'; // e.g. 'https://xyz.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFyaG5henplanlicWpqaGppZ3lxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwMTgyODUsImV4cCI6MjEwNDU5NDI4NX0.YuqYZfxVD2gwou6yAphTWNGadj1MKZntK7W__dY400A'; // e.g. 'eyJhbGciOiJKV1Qi...'
+
+let supabaseClient = null;
+if (window.supabase && SUPABASE_URL !== 'YOUR_SUPABASE_PROJECT_URL') {
+  try {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('⚡ Supabase Cloud Database Connected!');
+  } catch (e) {
+    console.warn('Supabase initialization warning:', e);
+  }
+}
 
 const STORAGE_KEY = 'REX_BGMI_TOURNAMENT_DATA_V6';
 
@@ -30,7 +48,6 @@ const INITIAL_ROUNDS = [
   { id: 'finals', name: 'Grand Finals', autoQualifyTopN: 0, lobbyCapacity: 16 }
 ];
 
-// Pre-loaded Teams with Round 1 and Round 2 qualification tags
 const INITIAL_TEAMS = [
   {
     code: 'REX-8M2P9X',
@@ -75,94 +92,6 @@ const INITIAL_TEAMS = [
     currentStage: 'round2',
     qualificationStatus: 'Qualified for Round 2',
     regDate: '2026-09-08T10:15:00'
-  },
-  {
-    code: 'REX-V39W8B',
-    teamName: 'GLOBAL ESPORTS',
-    tag: 'GE',
-    logo: '🌐',
-    capName: 'Rushindra Sinha',
-    capPhone: '9876543212',
-    capEmail: 'rush@globalesports.com',
-    state: 'Delhi',
-    players: [
-      { name: 'GExMAVI', id: '5123456801', role: 'Captain / IGL' },
-      { name: 'GExNINJA', id: '5123456802', role: 'Fragger' },
-      { name: 'GExBEAST', id: '5123456803', role: 'Support' },
-      { name: 'GExDARK', id: '5123456804', role: 'Assault' }
-    ],
-    group: 'Group A',
-    slot: 3,
-    status: 'Approved',
-    currentStage: 'round2',
-    qualificationStatus: 'Qualified for Round 2',
-    regDate: '2026-09-08T10:30:00'
-  },
-  {
-    code: 'REX-7F4R2K',
-    teamName: 'TEAM XSPARK',
-    tag: 'TX',
-    logo: '⚡',
-    capName: 'Tanmay Singh',
-    capPhone: '9876543213',
-    capEmail: 'scout@xspark.gg',
-    state: 'Uttar Pradesh',
-    players: [
-      { name: 'TXxSCOUT', id: '5123456811', role: 'Assault' },
-      { name: 'TXxSPRAYGOD', id: '5123456812', role: 'Fragger' },
-      { name: 'TXxNINJABOY', id: '5123456813', role: 'Support' },
-      { name: 'TXxDREAM', id: '5123456814', role: 'IGL' }
-    ],
-    group: 'Group A',
-    slot: 4,
-    status: 'Approved',
-    currentStage: 'round2',
-    qualificationStatus: 'Qualified for Round 2',
-    regDate: '2026-09-08T11:00:00'
-  },
-  {
-    code: 'REX-5L9N3T',
-    teamName: 'ENTITY GAMING',
-    tag: 'ENT',
-    logo: '💀',
-    capName: 'Varun Puri',
-    capPhone: '9876543214',
-    capEmail: 'admin@entitygaming.in',
-    state: 'Karnataka',
-    players: [
-      { name: 'ENTxPUNKER', id: '5123456821', role: 'IGL' },
-      { name: 'ENTxTROJAN', id: '5123456822', role: 'Fragger' },
-      { name: 'ENTxVIPER', id: '5123456823', role: 'Support' },
-      { name: 'ENTxGHOST', id: '5123456824', role: 'Assault' }
-    ],
-    group: 'Group B',
-    slot: 1,
-    status: 'Approved',
-    currentStage: 'round1',
-    qualificationStatus: 'Round 1 Competitor',
-    regDate: '2026-09-08T11:30:00'
-  },
-  {
-    code: 'REX-9W3B8M',
-    teamName: 'BLIND ESPORTS',
-    tag: 'BLND',
-    logo: '🎯',
-    capName: 'Arjun Nair',
-    capPhone: '9876543215',
-    capEmail: 'arjun@blindesports.com',
-    state: 'Kerala',
-    players: [
-      { name: 'BLNDxSKIPPER', id: '5123456831', role: 'IGL' },
-      { name: 'BLNDxZOD', id: '5123456832', role: 'Fragger' },
-      { name: 'BLNDxMANYA', id: '5123456833', role: 'Assault' },
-      { name: 'BLNDxRAKA', id: '5123456834', role: 'Support' }
-    ],
-    group: 'Group B',
-    slot: 2,
-    status: 'Approved',
-    currentStage: 'round1',
-    qualificationStatus: 'Eliminated in Round 1',
-    regDate: '2026-09-08T12:00:00'
   }
 ];
 
@@ -181,9 +110,7 @@ const INITIAL_SCORES = [
     matchNum: 'Match 1',
     scores: [
       { teamCode: 'REX-8M2P9X', teamName: 'TEAM GODLIKE', rank: 1, kills: 14 },
-      { teamCode: 'REX-K47Q9Z', teamName: 'TEAM SOUL', rank: 2, kills: 8 },
-      { teamCode: 'REX-V39W8B', teamName: 'GLOBAL ESPORTS', rank: 3, kills: 5 },
-      { teamCode: 'REX-7F4R2K', teamName: 'TEAM XSPARK', rank: 4, kills: 6 }
+      { teamCode: 'REX-K47Q9Z', teamName: 'TEAM SOUL', rank: 2, kills: 8 }
     ]
   }
 ];
@@ -201,6 +128,7 @@ const DEFAULT_STATE = {
 class DataStore {
   constructor() {
     this.state = this.load();
+    this.syncFromSupabaseCloud();
   }
 
   load() {
@@ -218,6 +146,93 @@ class DataStore {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
     } catch (e) {
       console.error('Save error:', e);
+    }
+  }
+
+  // Cloud Sync to Supabase Table
+  async syncToSupabase(team) {
+    if (!supabaseClient) {
+      console.warn('Supabase client is not connected. Check SUPABASE_URL and SUPABASE_ANON_KEY in data.js');
+      return;
+    }
+    try {
+      const payload = {
+        code: team.code,
+        teamName: team.teamName,
+        teamname: team.teamName,
+        tag: team.tag,
+        capName: team.capName,
+        capname: team.capName,
+        capPhone: team.capPhone,
+        capphone: team.capPhone,
+        capEmail: team.capEmail,
+        capemail: team.capEmail,
+        group: team.group,
+        slot: team.slot,
+        status: team.status || 'Approved',
+        qualificationStatus: team.qualificationStatus || 'Round 1 Competitor',
+        qualificationstatus: team.qualificationStatus || 'Round 1 Competitor',
+        players: team.players
+      };
+
+      const { data, error } = await supabaseClient.from('teams').insert([payload]);
+
+      if (error) {
+        console.error('❌ Supabase Insert Error:', error.message, error.details, error.hint);
+        if (typeof showToast === 'function') {
+          showToast(`Supabase Error: ${error.message}. Check RLS Policy!`, 'error');
+        }
+      } else {
+        console.log('⚡ Team successfully synced to Supabase Cloud!', team.code);
+        if (typeof showToast === 'function') {
+          showToast('Team synced to Cloud DB!', 'success');
+        }
+      }
+    } catch (e) {
+      console.error('Supabase Exception:', e);
+    }
+  }
+
+  // Fetch teams from Supabase Cloud on load if configured
+  async syncFromSupabaseCloud() {
+    if (!supabaseClient) return;
+    try {
+      const { data, error } = await supabaseClient.from('teams').select('*');
+      if (error) {
+        console.error('❌ Supabase Select Error:', error.message);
+        return;
+      }
+      if (data && data.length > 0) {
+        console.log(`⚡ Fetched ${data.length} teams from Supabase Cloud!`);
+        let hasNew = false;
+        data.forEach(cloudTeam => {
+          if (!this.state.teams.some(t => t.code === cloudTeam.code)) {
+            const normalized = {
+              code: cloudTeam.code,
+              teamName: cloudTeam.teamName || cloudTeam.teamname || 'Team',
+              tag: cloudTeam.tag || '',
+              logo: cloudTeam.logo || '🦖',
+              capName: cloudTeam.capName || cloudTeam.capname || 'Captain',
+              capPhone: cloudTeam.capPhone || cloudTeam.capphone || '',
+              capEmail: cloudTeam.capEmail || cloudTeam.capemail || '',
+              group: cloudTeam.group || 'Group A',
+              slot: parseInt(cloudTeam.slot) || 1,
+              status: cloudTeam.status || 'Approved',
+              qualificationStatus: cloudTeam.qualificationStatus || cloudTeam.qualificationstatus || 'Round 1 Competitor',
+              currentStage: cloudTeam.currentStage || cloudTeam.currentstage || 'round1',
+              players: typeof cloudTeam.players === 'string' ? JSON.parse(cloudTeam.players) : (cloudTeam.players || [])
+            };
+            this.state.teams.unshift(normalized);
+            hasNew = true;
+          }
+        });
+        if (hasNew) {
+          this.save();
+          window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase fetch error:', e);
     }
   }
 
@@ -290,6 +305,10 @@ class DataStore {
 
     this.state.teams.unshift(newTeam);
     this.save();
+
+    // Trigger Cloud Sync to Supabase
+    this.syncToSupabase(newTeam);
+
     return newTeam;
   }
 
@@ -342,17 +361,14 @@ class DataStore {
     this.save();
   }
 
-  // Strict Round Team Isolation Helper
   getTeamsForRound(roundId) {
     const approved = this.getTeams().filter(t => t.status === 'Approved');
     const rounds = this.getRounds();
     const rIdx = rounds.findIndex(r => r.id === roundId);
 
     if (rIdx <= 0 || roundId === 'round1') {
-      // Round 1: All initial registered teams
       return approved;
     } else {
-      // Subsequent Rounds (Round 2, Finals): ONLY teams tagged for this or higher stage!
       const targetRoundName = rounds[rIdx].name.toLowerCase();
       return approved.filter(t => {
         const qStatus = (t.qualificationStatus || '').toLowerCase();
@@ -433,7 +449,6 @@ class DataStore {
     return Object.values(teamsMap).sort((a, b) => b.totalPts - a.totalPts || b.wwcdCount - a.wwcdCount || b.killPts - a.killPts);
   }
 
-  // Strict Auto-Qualify Engine for Stage Advancement
   autoQualifyRoundTeams(sourceStageId, targetQualifyText = 'Qualified for Round 2', targetStageId = 'round2', topNPerGroup = 4) {
     const groups = ['Group A', 'Group B', 'Group C', 'Group D'];
     
@@ -441,14 +456,11 @@ class DataStore {
       const lb = this.getLeaderboard(sourceStageId, gName);
       if (lb.length > 0) {
         const topQualified = lb.slice(0, topNPerGroup);
-        const topCodes = topQualified.map(t => t.code);
 
-        // Mark Top Teams as Qualified
         topQualified.forEach(t => {
           this.updateTeamQualification(t.code, targetQualifyText, targetStageId);
         });
 
-        // Mark remaining teams in group as Eliminated in this stage
         const eliminated = lb.slice(topNPerGroup);
         eliminated.forEach(t => {
           const srcName = this.getRoundById(sourceStageId).name;

@@ -17,6 +17,15 @@ document.addEventListener('DOMContentLoaded', () => {
   initAdminPanel();
   initSecretAdminShortcut();
   updateHeroMetrics();
+
+  window.addEventListener('supabaseSyncComplete', () => {
+    console.log('⚡ Cloud data received! Re-rendering website view...');
+    initConfirmedTeamsGallery();
+    initQualifiedTeamsHub();
+    renderPublicGroups();
+    renderPublicStandings();
+    updateHeroMetrics();
+  });
 });
 
 function initSecretAdminShortcut() {
