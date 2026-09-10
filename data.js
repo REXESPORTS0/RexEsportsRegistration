@@ -113,29 +113,36 @@ class DataStore {
     }
   }
 
-  // Cloud Sync to Supabase Table with Smart Column Format Retry & Upsert
+  // Cloud Sync to Supabase Table - Clean Single Keys
   async syncToSupabase(team) {
-    if (!supabaseClient) {
-      console.warn('Supabase client is not connected. Check SUPABASE_URL and SUPABASE_ANON_KEY in data.js');
+    if (!supabaseClient) return false;
+    try {
+      const payload = {
+        code: team.code,
+        teamname: team.teamName,
+        tag: team.tag,
+        capname: team.capName,
+        capphone: team.capPhone,
+        capemail: team.capEmail,
+        group: team.group,
+        slot: team.slot,
+        status: team.status || 'Approved',
+        qualificationstatus: team.qualificationStatus || 'Round 1 Competitor',
+        players: team.players
+      };
+
+      const { data, error } = await supabaseClient.from('teams').upsert([payload], { onConflict: 'code' });
+      if (!error) {
+        console.log('⚡ Team successfully synced to Supabase Cloud!', team.code);
+        return true;
+      } else {
+        console.error('❌ Supabase Upsert Error:', error.message);
+        return false;
+      }
+    } catch (e) {
+      console.error('Supabase Exception:', e);
       return false;
     }
-
-    const payloadLowercase = {
-      code: team.code,
-      teamname: team.teamName,
-      tag: team.tag,
-      capname: team.capName,
-      capphone: team.capPhone,
-      capemail: team.capEmail,
-      group: team.group,
-      slot: team.slot,
-      status: team.status || 'Approved',
-      qualificationstatus: team.qualificationStatus || 'Round 1 Competitor',
-      players: team.players
-    };
-
-    const payloadCamel = {
-      code: team.code,
       teamName: team.teamName,
       tag: team.tag,
       capName: team.capName,
@@ -455,7 +462,6 @@ class DataStore {
           id: sch.id,
           group: sch.group,
           stage: sch.stage,
-          matchNum: sch.matchNum,
           matchnum: sch.matchNum,
           time: sch.time,
           map: sch.map
@@ -492,13 +498,11 @@ class DataStore {
           id: bc.id || `BC-${bc.group}-${bc.stage}`,
           group: bc.group,
           stage: bc.stage,
-          roomId: bc.roomId,
           roomid: bc.roomId,
-          roomPass: bc.roomPass,
           roompass: bc.roomPass,
-          matchTime: bc.matchTime,
+          matchtime: bc.matchTime,
           map: bc.map,
-          isLive: bc.isLive !== false
+          islive: bc.isLive !== false
         };
         await supabaseClient.from('broadcasts').upsert([payload], { onConflict: 'id' });
         console.log('⚡ Broadcast credentials synced to Supabase Cloud!');
@@ -536,7 +540,6 @@ class DataStore {
           id: scoreId,
           stage: scoreObj.stage,
           group: scoreObj.group,
-          matchNum: scoreObj.matchNum,
           matchnum: scoreObj.matchNum,
           scores: scoreObj.scores
         }], { onConflict: 'id' });
