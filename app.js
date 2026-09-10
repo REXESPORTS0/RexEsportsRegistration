@@ -28,9 +28,16 @@ document.addEventListener('DOMContentLoaded', () => {
     updateHeroMetrics();
     populateDynamicRoundDropdowns();
 
-    // Re-render Admin Dashboard if Admin is currently viewing it
+    // Re-render Admin Dashboard ONLY if the user is NOT currently typing inside an input/textarea
+    const activeEl = document.activeElement;
+    const isTyping = activeEl && (
+      activeEl.tagName === 'INPUT' || 
+      activeEl.tagName === 'TEXTAREA' || 
+      activeEl.tagName === 'SELECT'
+    );
+
     const dashContent = document.getElementById('adminDashboardContent');
-    if (dashContent && !dashContent.classList.contains('d-none')) {
+    if (dashContent && !dashContent.classList.contains('d-none') && !isTyping) {
       renderAdminDashboard();
     }
 
@@ -1080,35 +1087,29 @@ function renderAdminDashboard() {
 function renderAdminWebsiteContentForm() {
   const settings = window.store ? window.store.getSettings() : {};
   const rounds = window.store ? window.store.getRounds() : [];
-  
-  const titleIn = document.getElementById('admTournamentTitle');
-  if (titleIn) titleIn.value = settings.tournamentTitle || 'REX ESPORTS BGMI CHAMPIONSHIP';
+  const activeEl = document.activeElement;
 
-  const prizeIn = document.getElementById('admPrizePool');
-  if (prizeIn) prizeIn.value = settings.prizePool || '₹50,000';
+  const safeSet = (id, val) => {
+    const el = document.getElementById(id);
+    if (el && el !== activeEl && document.activeElement !== el) {
+      el.value = val;
+    }
+  };
 
-  const feeIn = document.getElementById('admEntryFee');
-  if (feeIn) feeIn.value = settings.entryFee || 'FREE';
-
-  const slotsIn = document.getElementById('admTotalSlots');
-  if (slotsIn) slotsIn.value = settings.totalSlots || 64;
+  safeSet('admTournamentTitle', settings.tournamentTitle || 'REX ESPORTS BGMI CHAMPIONSHIP');
+  safeSet('admPrizePool', settings.prizePool || '₹50,000');
+  safeSet('admEntryFee', settings.entryFee || 'FREE');
+  safeSet('admTotalSlots', settings.totalSlots || 64);
 
   const stageSelect = document.getElementById('admActiveStageId');
-  if (stageSelect) {
+  if (stageSelect && stageSelect !== activeEl && document.activeElement !== stageSelect) {
     stageSelect.innerHTML = rounds.map(r => `<option value="${r.id}" ${r.id === settings.activeStageId ? 'selected' : ''}>${r.name}</option>`).join('');
   }
 
-  const headerIn = document.getElementById('admHeaderStatusText');
-  if (headerIn) headerIn.value = settings.headerStatusText || 'QUALIFIERS - ROUND 1 OPEN';
-
-  const descIn = document.getElementById('admDescription');
-  if (descIn) descIn.value = settings.description || '';
-
-  const rulesIn = document.getElementById('admRulesText');
-  if (rulesIn) rulesIn.value = settings.rulesText || '';
-
-  const pdfIn = document.getElementById('admRulesPdfUrl');
-  if (pdfIn) pdfIn.value = settings.rulesPdfUrl || '';
+  safeSet('admHeaderStatusText', settings.headerStatusText || 'QUALIFIERS - ROUND 1 OPEN');
+  safeSet('admDescription', settings.description || '');
+  safeSet('admRulesText', settings.rulesText || '');
+  safeSet('admRulesPdfUrl', settings.rulesPdfUrl || '');
 }
 
 function renderAdminRoundsTable() {

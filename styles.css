@@ -38,11 +38,20 @@
   --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Global Reset */
+/* Global Reset & San Francisco Typeface Family */
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+button, input, select, textarea {
+  font-family: var(--font-body);
 }
 
 body.light-blue-theme {
@@ -1008,17 +1017,20 @@ body.light-blue-theme {
     width: auto;
   }
 
-  /* Horizontal swipeable subtabs for rounds & groups */
-  .stage-subtabs, .admin-subtabs, .nav-tabs {
+  /* Horizontal swipeable subtabs, tables, filter bars & stats on Mobile */
+  .stage-subtabs, .admin-subtabs, .nav-tabs, .stage-tabs-bar, .filter-bar, .hero-stats, .roster-chips, .table-responsive {
     display: flex;
-    overflow-x: auto;
+    overflow-x: auto !important;
     flex-wrap: nowrap;
-    -webkit-overflow-scrolling: touch;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x !important;
     padding-bottom: 0.5rem;
     scrollbar-width: none;
     gap: 0.4rem;
+    width: 100%;
+    max-width: 100%;
   }
-  .stage-subtabs::-webkit-scrollbar, .admin-subtabs::-webkit-scrollbar {
+  .stage-subtabs::-webkit-scrollbar, .admin-subtabs::-webkit-scrollbar, .stage-tabs-bar::-webkit-scrollbar, .table-responsive::-webkit-scrollbar {
     display: none;
   }
   
@@ -1042,10 +1054,13 @@ body.light-blue-theme {
 
   /* Table responsiveness & smooth swipe */
   .table-responsive {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    display: block;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x !important;
     border-radius: var(--radius-sm);
     margin-bottom: 1rem;
+    max-width: 100%;
   }
   .styled-table th, .styled-table td {
     padding: 0.65rem 0.75rem;
