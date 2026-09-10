@@ -623,15 +623,16 @@ function renderPublicStandings() {
    ADMIN PANEL CONTROLLER (ISOLATED DYNAMIC ROUND SECTIONS)
    ========================================================================== */
 window.unlockAdminDirectly = function() {
+  switchTab('admin');
   const lockScreen = document.getElementById('adminLockScreen');
   const dashboardContent = document.getElementById('adminDashboardContent');
   if (lockScreen) {
     lockScreen.classList.add('d-none');
-    lockScreen.style.display = 'none';
+    lockScreen.style.setProperty('display', 'none', 'important');
   }
   if (dashboardContent) {
     dashboardContent.classList.remove('d-none');
-    dashboardContent.style.display = 'block';
+    dashboardContent.style.setProperty('display', 'block', 'important');
   }
   if (typeof showToast === 'function') showToast('Admin Control Center Unlocked!', 'success');
   if (typeof renderAdminDashboard === 'function') renderAdminDashboard();
