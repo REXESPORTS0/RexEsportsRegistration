@@ -337,11 +337,12 @@ class DataStore {
         }
       }
 
-      // 6. Fetch Settings (Prize Pool, Description, Rules, PDF URL, Custom PIN)
+      // 6. Fetch Settings (Prize Pool, Description, Rules, PDF URL, Custom PIN, Championship Title)
       const { data: setData, error: setErr } = await supabaseClient.from('settings').select('*');
       if (!setErr && Array.isArray(setData) && setData.length > 0) {
         const cloudSet = setData[0];
         this.state.settings = {
+          tournamentTitle: cloudSet.tournamentTitle || cloudSet.tournamenttitle || this.state.settings?.tournamentTitle || 'REX ESPORTS BGMI CHAMPIONSHIP',
           prizePool: cloudSet.prizePool || cloudSet.prizepool || this.state.settings?.prizePool || '₹50,000',
           description: cloudSet.description || this.state.settings?.description || 'Register your team...',
           totalSlots: parseInt(cloudSet.totalSlots || cloudSet.totalslots) || this.state.settings?.totalSlots || 64,
@@ -359,12 +360,8 @@ class DataStore {
         }
       }
 
-      const afterStateStr = JSON.stringify(this.state);
-      if (beforeStateStr !== afterStateStr) {
-        console.log('⚡ Supabase Cloud State updated! Emitting refresh event...');
-        this.save();
-        window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
-      }
+      this.save();
+      window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
     } catch (e) {
       console.warn('Supabase fetch error:', e);
     }
@@ -386,6 +383,7 @@ class DataStore {
       try {
         const pLower = {
           id: 'main_settings',
+          tournamenttitle: this.state.settings.tournamentTitle || 'REX ESPORTS BGMI CHAMPIONSHIP',
           prizepool: this.state.settings.prizePool,
           description: this.state.settings.description,
           totalslots: this.state.settings.totalSlots,
@@ -397,6 +395,7 @@ class DataStore {
         };
         const pCamel = {
           id: 'main_settings',
+          tournamentTitle: this.state.settings.tournamentTitle || 'REX ESPORTS BGMI CHAMPIONSHIP',
           prizePool: this.state.settings.prizePool,
           description: this.state.settings.description,
           totalSlots: this.state.settings.totalSlots,
