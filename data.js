@@ -206,11 +206,11 @@ class DataStore {
     return false;
   }
 
-  // Fetch all Cloud Data (Teams, Broadcasts, Schedules, Scores) from Supabase on load & interval
+  // Fetch all Cloud Data (Teams, Broadcasts, Schedules, Scores, Rounds) from Supabase
   async syncFromSupabaseCloud() {
     if (!supabaseClient) return;
     try {
-      let updated = false;
+      const beforeStateStr = JSON.stringify(this.state);
 
       // 1. Fetch Teams
       const { data: teamsData, error: teamsErr } = await supabaseClient.from('teams').select('*');
@@ -219,7 +219,7 @@ class DataStore {
           code: cloudTeam.code,
           teamName: cloudTeam.teamName || cloudTeam.teamname || 'Team',
           tag: cloudTeam.tag || '',
-          logo: cloudTeam.logo || '🦖',
+          logo: cloudTeam.logo || '👑',
           capName: cloudTeam.capName || cloudTeam.capname || 'Captain',
           capPhone: cloudTeam.capPhone || cloudTeam.capphone || '',
           capEmail: cloudTeam.capEmail || cloudTeam.capemail || '',
@@ -239,7 +239,6 @@ class DataStore {
             this.state.teams.unshift(ct);
           }
         });
-        updated = true;
       }
 
       // 2. Fetch Broadcasts (Room ID & Passwords)
@@ -260,7 +259,6 @@ class DataStore {
           if (idx >= 0) this.state.broadcasts[idx] = normalized;
           else this.state.broadcasts.unshift(normalized);
         });
-        updated = true;
       }
 
       // 3. Fetch Schedules
@@ -279,7 +277,6 @@ class DataStore {
           if (idx >= 0) this.state.schedules[idx] = normalized;
           else this.state.schedules.unshift(normalized);
         });
-        updated = true;
       }
 
       // 4. Fetch Match Scores (Points Table)
@@ -296,7 +293,6 @@ class DataStore {
           if (idx >= 0) this.state.matchScores[idx] = normalized;
           else this.state.matchScores.unshift(normalized);
         });
-        updated = true;
       }
 
       // 5. Fetch Rounds
@@ -313,10 +309,11 @@ class DataStore {
           if (idx >= 0) this.state.rounds[idx] = normalized;
           else this.state.rounds.push(normalized);
         });
-        updated = true;
       }
 
-      if (updated) {
+      const afterStateStr = JSON.stringify(this.state);
+      if (beforeStateStr !== afterStateStr) {
+        console.log('⚡ Supabase Cloud State updated! Emitting refresh event...');
         this.save();
         window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
       }

@@ -19,12 +19,25 @@ document.addEventListener('DOMContentLoaded', () => {
   updateHeroMetrics();
 
   window.addEventListener('supabaseSyncComplete', () => {
-    console.log('⚡ Cloud data received! Re-rendering website view...');
+    console.log('⚡ Cloud data received! Re-rendering all active website views live...');
     initConfirmedTeamsGallery();
     initQualifiedTeamsHub();
     renderPublicGroups();
     renderPublicStandings();
     updateHeroMetrics();
+
+    // Re-render Admin Dashboard if Admin is currently viewing it
+    const dashContent = document.getElementById('adminDashboardContent');
+    if (dashContent && !dashContent.classList.contains('d-none')) {
+      renderAdminDashboard();
+    }
+
+    // Refresh active Player Hub IDP search if player is looking up credentials
+    const searchInput = document.getElementById('idpSearchInput');
+    if (searchInput && searchInput.value.trim()) {
+      const searchBtn = document.getElementById('idpSearchBtn');
+      if (searchBtn) searchBtn.click();
+    }
   });
 });
 
