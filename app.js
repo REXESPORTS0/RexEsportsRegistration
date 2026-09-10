@@ -1019,14 +1019,14 @@ function renderAdminRoundsTable() {
   if (window.lucide) lucide.createIcons();
 }
 
-window.deleteRoundFromAdmin = function(id) {
+window.deleteRoundFromAdmin = async function(id) {
   if (confirm('Delete this tournament round?')) {
-    if (window.store) window.store.deleteRound(id);
+    if (window.store) await window.store.deleteRound(id);
     renderAdminRoundsTable();
     populateDynamicRoundDropdowns();
     renderPublicRoundsFlow();
     initAdminQualifyRoundSubtabs();
-    showToast('Round deleted', 'info');
+    showToast('Round deleted permanently!', 'info');
   }
 };
 
@@ -1038,13 +1038,14 @@ function populateTeamTransferDropdown() {
   select.innerHTML = teams.map(t => `<option value="${t.code}">${t.teamName} (${t.code} - Currently: ${t.group} Slot #${t.slot})</option>`).join('');
 }
 
-window.deleteTeamFromAdmin = function(code) {
+window.deleteTeamFromAdmin = async function(code) {
   if (confirm(`Delete team ${code}?`)) {
-    if (window.store) window.store.deleteTeam(code);
+    if (window.store) await window.store.deleteTeam(code);
     renderAdminTeamsTable();
     renderAdminGroupsGrid();
     renderConfirmedTeamsGallery();
-    showToast('Team deleted', 'info');
+    renderAdminDashboard();
+    showToast('Team deleted permanently!', 'info');
   }
 };
 
@@ -1072,11 +1073,11 @@ function renderAdminSchedulesTable() {
   if (window.lucide) lucide.createIcons();
 }
 
-window.deleteScheduleFromAdmin = function(id) {
+window.deleteScheduleFromAdmin = async function(id) {
   if (confirm('Delete this match schedule?')) {
-    if (window.store) window.store.deleteSchedule(id);
+    if (window.store) await window.store.deleteSchedule(id);
     renderAdminSchedulesTable();
-    showToast('Schedule deleted', 'info');
+    showToast('Schedule deleted permanently!', 'info');
   }
 };
 
@@ -1145,11 +1146,11 @@ function renderAdminBroadcastsTable() {
   if (window.lucide) lucide.createIcons();
 }
 
-window.deleteBroadcastFromAdmin = function(id) {
+window.deleteBroadcastFromAdmin = async function(id) {
   if (confirm('Delete this Room ID & Password broadcast?')) {
-    if (window.store) window.store.deleteBroadcast(id);
+    if (window.store) await window.store.deleteBroadcast(id);
     renderAdminBroadcastsTable();
-    showToast('Broadcast deleted', 'info');
+    showToast('Broadcast deleted permanently!', 'info');
   }
 };
 
