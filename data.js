@@ -113,34 +113,72 @@ class DataStore {
     }
   }
 
-  // Cloud Sync to Supabase Table - Clean Single Keys
+  // Cloud Sync to Supabase Table - Multi-Strategy Bulletproof Sync
   async syncToSupabase(team) {
     if (!supabaseClient) return false;
     try {
-      const payload = {
+      // Primary payload (lowercase keys for standard PostgreSQL columns)
+      const payloadLower = {
         code: team.code,
         teamname: team.teamName,
-        tag: team.tag,
+        tag: team.tag || '',
         capname: team.capName,
         capphone: team.capPhone,
         capemail: team.capEmail,
-        group: team.group,
-        slot: team.slot,
+        group: team.group || 'Group A',
+        slot: team.slot || 1,
         status: team.status || 'Approved',
         qualificationstatus: team.qualificationStatus || 'Round 1 Competitor',
         players: team.players
       };
 
-      const { data, error } = await supabaseClient.from('teams').upsert([payload], { onConflict: 'code' });
-      if (!error) {
-        console.log('⚡ Team successfully synced to Supabase Cloud!', team.code);
+      // Fallback payload (camelCase keys if table was created with quoted identifiers)
+      const payloadCamel = {
+        code: team.code,
+        teamName: team.teamName,
+        tag: team.tag || '',
+        capName: team.capName,
+        capPhone: team.capPhone,
+        capEmail: team.capEmail,
+        group: team.group || 'Group A',
+        slot: team.slot || 1,
+        status: team.status || 'Approved',
+        qualificationStatus: team.qualificationStatus || 'Round 1 Competitor',
+        players: team.players
+      };
+
+      // Strategy 1: Try upsert with lowercase keys
+      let res = await supabaseClient.from('teams').upsert([payloadLower], { onConflict: 'code' });
+      if (!res.error) {
+        console.log('⚡ Team successfully synced to Supabase Cloud (Upsert Lowercase):', team.code);
         return true;
-      } else {
-        console.error('❌ Supabase Upsert Error:', error.message);
-        return false;
       }
+
+      // Strategy 2: Try direct insert with lowercase keys (if onConflict constraint is missing)
+      res = await supabaseClient.from('teams').insert([payloadLower]);
+      if (!res.error) {
+        console.log('⚡ Team successfully synced to Supabase Cloud (Insert Lowercase):', team.code);
+        return true;
+      }
+
+      // Strategy 3: Try upsert with camelCase keys
+      res = await supabaseClient.from('teams').upsert([payloadCamel], { onConflict: 'code' });
+      if (!res.error) {
+        console.log('⚡ Team successfully synced to Supabase Cloud (Upsert Camel):', team.code);
+        return true;
+      }
+
+      // Strategy 4: Try insert with camelCase keys
+      res = await supabaseClient.from('teams').insert([payloadCamel]);
+      if (!res.error) {
+        console.log('⚡ Team successfully synced to Supabase Cloud (Insert Camel):', team.code);
+        return true;
+      }
+
+      console.error('❌ Supabase Team Sync Error:', res.error?.message);
+      return false;
     } catch (e) {
-      console.error('Supabase Exception:', e);
+      console.error('Supabase Exception during team sync:', e);
       return false;
     }
   }
@@ -154,60 +192,79 @@ class DataStore {
       // 1. Fetch Teams
       const { data: teamsData, error: teamsErr } = await supabaseClient.from('teams').select('*');
       if (!teamsErr && Array.isArray(teamsData)) {
-        this.state.teams = teamsData.map(cloudTeam => ({
-          code: cloudTeam.code,
-          teamName: cloudTeam.teamName || cloudTeam.teamname || 'Team',
-          tag: cloudTeam.tag || '',
-          logo: cloudTeam.logo || '👑',
-          capName: cloudTeam.capName || cloudTeam.capname || 'Captain',
-          capPhone: cloudTeam.capPhone || cloudTeam.capphone || '',
-          capEmail: cloudTeam.capEmail || cloudTeam.capemail || '',
-          group: cloudTeam.group || 'Group A',
-          slot: parseInt(cloudTeam.slot) || 1,
-          status: cloudTeam.status || 'Approved',
-          qualificationStatus: cloudTeam.qualificationStatus || cloudTeam.qualificationstatus || 'Round 1 Competitor',
-          currentStage: cloudTeam.currentStage || cloudTeam.currentstage || 'round1',
-          players: typeof cloudTeam.players === 'string' ? JSON.parse(cloudTeam.players) : (cloudTeam.players || [])
-        }));
+        if (teamsData.length > 0) {
+          this.state.teams = teamsData.map(cloudTeam => ({
+            code: cloudTeam.code,
+            teamName: cloudTeam.teamName || cloudTeam.teamname || 'Team',
+            tag: cloudTeam.tag || '',
+            logo: cloudTeam.logo || '👑',
+            capName: cloudTeam.capName || cloudTeam.capname || 'Captain',
+            capPhone: cloudTeam.capPhone || cloudTeam.capphone || '',
+            capEmail: cloudTeam.capEmail || cloudTeam.capemail || '',
+            group: cloudTeam.group || 'Group A',
+            slot: parseInt(cloudTeam.slot) || 1,
+            status: cloudTeam.status || 'Approved',
+            qualificationStatus: cloudTeam.qualificationStatus || cloudTeam.qualificationstatus || 'Round 1 Competitor',
+            currentStage: cloudTeam.currentStage || cloudTeam.currentstage || 'round1',
+            players: typeof cloudTeam.players === 'string' ? JSON.parse(cloudTeam.players) : (cloudTeam.players || [])
+          }));
+        } else if (this.state.teams && this.state.teams.length > 0) {
+          console.log('⚡ Cloud database has 0 teams. Uploading local teams to Supabase...');
+          this.state.teams.forEach(t => this.syncToSupabase(t));
+        }
+      } else if (teamsErr) {
+        console.warn('Teams fetch warning:', teamsErr.message);
       }
 
       // 2. Fetch Broadcasts (Room ID & Passwords)
       const { data: bcData, error: bcErr } = await supabaseClient.from('broadcasts').select('*');
       if (!bcErr && Array.isArray(bcData)) {
-        this.state.broadcasts = bcData.map(bc => ({
-          id: bc.id,
-          group: bc.group,
-          stage: bc.stage,
-          roomId: bc.roomId || bc.roomid || '',
-          roomPass: bc.roomPass || bc.roompass || '',
-          matchTime: bc.matchTime || bc.matchtime || '',
-          map: bc.map || 'Erangel',
-          isLive: bc.isLive !== false
-        }));
+        if (bcData.length > 0) {
+          this.state.broadcasts = bcData.map(bc => ({
+            id: bc.id,
+            group: bc.group,
+            stage: bc.stage,
+            roomId: bc.roomId || bc.roomid || '',
+            roomPass: bc.roomPass || bc.roompass || '',
+            matchTime: bc.matchTime || bc.matchtime || '',
+            map: bc.map || 'Erangel',
+            isLive: bc.isLive !== false
+          }));
+        } else if (this.state.broadcasts && this.state.broadcasts.length > 0) {
+          this.state.broadcasts.forEach(b => this.saveBroadcast(b));
+        }
       }
 
       // 3. Fetch Schedules
       const { data: schData, error: schErr } = await supabaseClient.from('schedules').select('*');
       if (!schErr && Array.isArray(schData)) {
-        this.state.schedules = schData.map(sch => ({
-          id: sch.id,
-          group: sch.group,
-          stage: sch.stage,
-          matchNum: sch.matchNum || sch.matchnum || 'Match 1',
-          time: sch.time,
-          map: sch.map || 'Erangel'
-        }));
+        if (schData.length > 0) {
+          this.state.schedules = schData.map(sch => ({
+            id: sch.id,
+            group: sch.group,
+            stage: sch.stage,
+            matchNum: sch.matchNum || sch.matchnum || 'Match 1',
+            time: sch.time,
+            map: sch.map || 'Erangel'
+          }));
+        } else if (this.state.schedules && this.state.schedules.length > 0) {
+          this.state.schedules.forEach(s => this.addSchedule(s));
+        }
       }
 
       // 4. Fetch Match Scores (Points Table)
       const { data: scData, error: scErr } = await supabaseClient.from('match_scores').select('*');
       if (!scErr && Array.isArray(scData)) {
-        this.state.matchScores = scData.map(sc => ({
-          stage: sc.stage,
-          group: sc.group,
-          matchNum: sc.matchNum || sc.matchnum,
-          scores: typeof sc.scores === 'string' ? JSON.parse(sc.scores) : (sc.scores || [])
-        }));
+        if (scData.length > 0) {
+          this.state.matchScores = scData.map(sc => ({
+            stage: sc.stage,
+            group: sc.group,
+            matchNum: sc.matchNum || sc.matchnum,
+            scores: typeof sc.scores === 'string' ? JSON.parse(sc.scores) : (sc.scores || [])
+          }));
+        } else if (this.state.matchScores && this.state.matchScores.length > 0) {
+          this.state.matchScores.forEach(m => this.saveMatchScore(m));
+        }
       }
 
       // 5. Fetch Rounds
@@ -433,15 +490,16 @@ class DataStore {
 
     if (supabaseClient) {
       try {
-        await supabaseClient.from('schedules').upsert([{
-          id: sch.id,
-          group: sch.group,
-          stage: sch.stage,
-          matchnum: sch.matchNum,
-          time: sch.time,
-          map: sch.map
-        }], { onConflict: 'id' });
-        console.log('⚡ Schedule synced to Supabase Cloud!');
+        const pLower = { id: sch.id, group: sch.group, stage: sch.stage, matchnum: sch.matchNum, time: sch.time, map: sch.map };
+        const pCamel = { id: sch.id, group: sch.group, stage: sch.stage, matchNum: sch.matchNum, time: sch.time, map: sch.map };
+
+        let res = await supabaseClient.from('schedules').upsert([pLower], { onConflict: 'id' });
+        if (res.error) res = await supabaseClient.from('schedules').insert([pLower]);
+        if (res.error) res = await supabaseClient.from('schedules').upsert([pCamel], { onConflict: 'id' });
+        if (res.error) res = await supabaseClient.from('schedules').insert([pCamel]);
+
+        if (!res.error) console.log('⚡ Schedule synced to Supabase Cloud!');
+        else console.warn('Schedule sync warning:', res.error.message);
       } catch (e) {
         console.warn('Schedule cloud sync warning:', e);
       }
@@ -469,18 +527,17 @@ class DataStore {
 
     if (supabaseClient) {
       try {
-        const payload = {
-          id: bc.id || `BC-${bc.group}-${bc.stage}`,
-          group: bc.group,
-          stage: bc.stage,
-          roomid: bc.roomId,
-          roompass: bc.roomPass,
-          matchtime: bc.matchTime,
-          map: bc.map,
-          islive: bc.isLive !== false
-        };
-        await supabaseClient.from('broadcasts').upsert([payload], { onConflict: 'id' });
-        console.log('⚡ Broadcast credentials synced to Supabase Cloud!');
+        const bcId = bc.id || `BC-${bc.group}-${bc.stage}`;
+        const pLower = { id: bcId, group: bc.group, stage: bc.stage, roomid: bc.roomId, roompass: bc.roomPass, matchtime: bc.matchTime, map: bc.map, islive: bc.isLive !== false };
+        const pCamel = { id: bcId, group: bc.group, stage: bc.stage, roomId: bc.roomId, roomPass: bc.roomPass, matchTime: bc.matchTime, map: bc.map, isLive: bc.isLive !== false };
+
+        let res = await supabaseClient.from('broadcasts').upsert([pLower], { onConflict: 'id' });
+        if (res.error) res = await supabaseClient.from('broadcasts').insert([pLower]);
+        if (res.error) res = await supabaseClient.from('broadcasts').upsert([pCamel], { onConflict: 'id' });
+        if (res.error) res = await supabaseClient.from('broadcasts').insert([pCamel]);
+
+        if (!res.error) console.log('⚡ Broadcast credentials synced to Supabase Cloud!');
+        else console.warn('Broadcast sync warning:', res.error.message);
       } catch (e) {
         console.warn('Broadcast cloud sync warning:', e);
       }
@@ -511,15 +568,21 @@ class DataStore {
     if (supabaseClient) {
       try {
         const scoreId = `MS-${scoreObj.stage}-${scoreObj.group}-${scoreObj.matchNum}`.replace(/\s+/g, '_');
-        await supabaseClient.from('match_scores').upsert([{
-          id: scoreId,
-          stage: scoreObj.stage,
-          group: scoreObj.group,
-          matchnum: scoreObj.matchNum,
-          scores: scoreObj.scores
-        }], { onConflict: 'id' });
-        console.log('⚡ Match score synced to Supabase Cloud!');
+        const pLower = { id: scoreId, stage: scoreObj.stage, group: scoreObj.group, matchnum: scoreObj.matchNum, scores: scoreObj.scores };
+        const pCamel = { id: scoreId, stage: scoreObj.stage, group: scoreObj.group, matchNum: scoreObj.matchNum, scores: scoreObj.scores };
+
+        let res = await supabaseClient.from('match_scores').upsert([pLower], { onConflict: 'id' });
+        if (res.error) res = await supabaseClient.from('match_scores').insert([pLower]);
+        if (res.error) res = await supabaseClient.from('match_scores').upsert([pCamel], { onConflict: 'id' });
+        if (res.error) res = await supabaseClient.from('match_scores').insert([pCamel]);
+
+        if (!res.error) console.log('⚡ Match score synced to Supabase Cloud!');
+        else console.warn('Match score sync warning:', res.error.message);
       } catch (e) {
+        console.warn('Match score cloud sync warning:', e);
+      }
+    }
+  }
         console.warn('Match score cloud sync warning:', e);
       }
     }

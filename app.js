@@ -228,6 +228,17 @@ function initRegistrationForm() {
       teamName, tag, logo: selectedAvatar, capName, capPhone, capEmail, state, players, status: 'Approved'
     });
 
+    // Re-render UI views immediately on local device
+    renderConfirmedTeamsGallery();
+    renderPublicGroups();
+    updateHeroMetrics();
+    renderPublicStandings();
+
+    const dashContent = document.getElementById('adminDashboardContent');
+    if (dashContent && !dashContent.classList.contains('d-none')) {
+      renderAdminDashboard();
+    }
+
     if (window.confetti) confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
 
     showToast(`Team ${teamName} Registered! Private Code: ${newTeam.code}`, 'success');
