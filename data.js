@@ -196,28 +196,26 @@ class DataStore {
       // 1. Fetch Teams
       const { data: teamsData, error: teamsErr } = await supabaseClient.from('teams').select('*');
       if (!teamsErr && Array.isArray(teamsData)) {
-        const deletedCodes = this.state.deletedTeamCodes || [];
-        const validCloudTeams = teamsData.filter(t => t.code && !deletedCodes.includes(t.code));
+        const deletedCodes = (this.state.deletedTeamCodes || []).map(c => c.toUpperCase());
+        const validCloudTeams = teamsData.filter(t => t.code && !deletedCodes.includes(t.code.toUpperCase()));
 
-        if (validCloudTeams.length > 0) {
-          this.state.teams = validCloudTeams.map(cloudTeam => ({
-            code: cloudTeam.code,
-            teamName: cloudTeam.teamName || cloudTeam.teamname || 'Team',
-            tag: cloudTeam.tag || '',
-            logo: cloudTeam.logo || '👑',
-            capName: cloudTeam.capName || cloudTeam.capname || 'Captain',
-            capPhone: cloudTeam.capPhone || cloudTeam.capphone || '',
-            capEmail: cloudTeam.capEmail || cloudTeam.capemail || '',
-            group: cloudTeam.group || 'Group A',
-            slot: parseInt(cloudTeam.slot) || 1,
-            status: cloudTeam.status || 'Approved',
-            qualificationStatus: cloudTeam.qualificationStatus || cloudTeam.qualificationstatus || 'Round 1 Competitor',
-            currentStage: cloudTeam.currentStage || cloudTeam.currentstage || 'round1',
-            players: typeof cloudTeam.players === 'string' ? JSON.parse(cloudTeam.players) : (cloudTeam.players || [])
-          }));
-        } else {
-          this.state.teams = (this.state.teams || []).filter(t => !deletedCodes.includes(t.code));
-        }
+        this.state.teams = validCloudTeams.map(cloudTeam => ({
+          code: cloudTeam.code,
+          teamName: cloudTeam.teamName || cloudTeam.teamname || 'Team',
+          tag: cloudTeam.tag || '',
+          logo: cloudTeam.logo || '👑',
+          capName: cloudTeam.capName || cloudTeam.capname || 'Captain',
+          capPhone: cloudTeam.capPhone || cloudTeam.capphone || '',
+          capEmail: cloudTeam.capEmail || cloudTeam.capemail || '',
+          group: cloudTeam.group || 'Group A',
+          slot: parseInt(cloudTeam.slot) || 1,
+          status: cloudTeam.status || 'Approved',
+          qualificationStatus: cloudTeam.qualificationStatus || cloudTeam.qualificationstatus || 'Round 1 Competitor',
+          currentStage: cloudTeam.currentStage || cloudTeam.currentstage || 'round1',
+          players: typeof cloudTeam.players === 'string' ? JSON.parse(cloudTeam.players) : (cloudTeam.players || [])
+        }));
+      } else if (teamsErr) {
+        console.warn('Teams fetch warning:', teamsErr.message);
       }
 
       // 2. Fetch Broadcasts (Room ID & Passwords)
@@ -226,20 +224,16 @@ class DataStore {
         const deletedBcIds = this.state.deletedBroadcastIds || [];
         const validBc = bcData.filter(b => b.id && !deletedBcIds.includes(b.id));
 
-        if (validBc.length > 0) {
-          this.state.broadcasts = validBc.map(bc => ({
-            id: bc.id,
-            group: bc.group,
-            stage: bc.stage,
-            roomId: bc.roomId || bc.roomid || '',
-            roomPass: bc.roomPass || bc.roompass || '',
-            matchTime: bc.matchTime || bc.matchtime || '',
-            map: bc.map || 'Erangel',
-            isLive: bc.isLive !== false
-          }));
-        } else {
-          this.state.broadcasts = (this.state.broadcasts || []).filter(b => !deletedBcIds.includes(b.id));
-        }
+        this.state.broadcasts = validBc.map(bc => ({
+          id: bc.id,
+          group: bc.group,
+          stage: bc.stage,
+          roomId: bc.roomId || bc.roomid || '',
+          roomPass: bc.roomPass || bc.roompass || '',
+          matchTime: bc.matchTime || bc.matchtime || '',
+          map: bc.map || 'Erangel',
+          isLive: bc.isLive !== false
+        }));
       }
 
       // 3. Fetch Schedules
@@ -248,18 +242,14 @@ class DataStore {
         const deletedSchIds = this.state.deletedScheduleIds || [];
         const validSch = schData.filter(s => s.id && !deletedSchIds.includes(s.id));
 
-        if (validSch.length > 0) {
-          this.state.schedules = validSch.map(sch => ({
-            id: sch.id,
-            group: sch.group,
-            stage: sch.stage,
-            matchNum: sch.matchNum || sch.matchnum || 'Match 1',
-            time: sch.time,
-            map: sch.map || 'Erangel'
-          }));
-        } else {
-          this.state.schedules = (this.state.schedules || []).filter(s => !deletedSchIds.includes(s.id));
-        }
+        this.state.schedules = validSch.map(sch => ({
+          id: sch.id,
+          group: sch.group,
+          stage: sch.stage,
+          matchNum: sch.matchNum || sch.matchnum || 'Match 1',
+          time: sch.time,
+          map: sch.map || 'Erangel'
+        }));
       }
 
       // 4. Fetch Match Scores (Points Table)
@@ -272,8 +262,6 @@ class DataStore {
             matchNum: sc.matchNum || sc.matchnum,
             scores: typeof sc.scores === 'string' ? JSON.parse(sc.scores) : (sc.scores || [])
           }));
-        } else if (this.state.matchScores && this.state.matchScores.length > 0) {
-          this.state.matchScores.forEach(m => this.saveMatchScore(m));
         }
       }
 
