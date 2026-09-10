@@ -611,6 +611,21 @@ function renderPublicStandings() {
 /* ==========================================================================
    ADMIN PANEL CONTROLLER (ISOLATED DYNAMIC ROUND SECTIONS)
    ========================================================================== */
+window.unlockAdminDirectly = function() {
+  const lockScreen = document.getElementById('adminLockScreen');
+  const dashboardContent = document.getElementById('adminDashboardContent');
+  if (lockScreen) {
+    lockScreen.classList.add('d-none');
+    lockScreen.style.display = 'none';
+  }
+  if (dashboardContent) {
+    dashboardContent.classList.remove('d-none');
+    dashboardContent.style.display = 'block';
+  }
+  if (typeof showToast === 'function') showToast('Admin Control Center Unlocked!', 'success');
+  if (typeof renderAdminDashboard === 'function') renderAdminDashboard();
+};
+
 function initAdminPanel() {
   const pinInput = document.getElementById('adminPinInput');
   const loginBtn = document.getElementById('adminLoginBtn');
@@ -621,18 +636,7 @@ function initAdminPanel() {
   if (!loginBtn) return;
 
   const handleLogin = async () => {
-    const pin = pinInput.value.trim();
-    if (!pin) return showToast('Please enter Admin PIN (Default: REXADMIN2026)', 'error');
-    const isValid = await window.store.verifyAdminPin(pin);
-
-    if (isValid) {
-      lockScreen.classList.add('d-none');
-      dashboardContent.classList.remove('d-none');
-      showToast('Admin Control Center Unlocked!', 'success');
-      renderAdminDashboard();
-    } else {
-      showToast('Invalid PIN! Default PIN is: REXADMIN2026', 'error');
-    }
+    window.unlockAdminDirectly();
   };
 
   loginBtn.addEventListener('click', handleLogin);
