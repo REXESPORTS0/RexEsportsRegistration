@@ -62,6 +62,7 @@ const DEFAULT_SETTINGS = {
   headerStatusText: 'QUALIFIERS - ROUND 1 OPEN',
   rulesText: '1. All players must use registered IGN and character UID.\n2. Emulators and 3rd party hacks are strictly prohibited.\n3. Teams must join the BGMI custom room lobby at least 10 minutes prior to match time.\n4. Disconnections will not trigger a match restart unless specified by admins.',
   rulesPdfUrl: '',
+  logoUrl: '',
   adminPinHash: DEFAULT_PIN_HASH,
   activeStageId: 'round1'
 };
@@ -385,6 +386,7 @@ class DataStore {
           headerStatusText: cloudSet.headerStatusText || cloudSet.headerstatustext,
           rulesText: cloudSet.rulesText || cloudSet.rulestext,
           rulesPdfUrl: cloudSet.rulesPdfUrl || cloudSet.rulespdfurl,
+          logoUrl: cloudSet.logoUrl || cloudSet.logourl || '',
           adminPinHash: cloudSet.adminPinHash || cloudSet.adminpinhash,
           activeStageId: cloudSet.activeStageId || cloudSet.activestageid
         };
@@ -439,6 +441,7 @@ class DataStore {
           headerstatustext: this.state.settings.headerStatusText,
           rulestext: this.state.settings.rulesText,
           rulespdfurl: this.state.settings.rulesPdfUrl,
+          logourl: this.state.settings.logoUrl || '',
           adminpinhash: this.state.settings.adminPinHash || this.state.adminPinHash,
           activestageid: this.state.settings.activeStageId || this.state.activeStageId
         };
@@ -452,6 +455,7 @@ class DataStore {
           headerStatusText: this.state.settings.headerStatusText,
           rulesText: this.state.settings.rulesText,
           rulesPdfUrl: this.state.settings.rulesPdfUrl,
+          logoUrl: this.state.settings.logoUrl || '',
           adminPinHash: this.state.settings.adminPinHash || this.state.adminPinHash,
           activeStageId: this.state.settings.activeStageId || this.state.activeStageId
         };

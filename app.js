@@ -5,6 +5,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   if (window.lucide) lucide.createIcons();
 
+  renderBrandLogo();
   initNavigation();
   initRegistrationForm();
   initConfirmedTeamsGallery();
@@ -20,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('supabaseSyncComplete', () => {
     console.log('⚡ Cloud data received! Re-rendering all active website views live...');
+    renderBrandLogo();
     initConfirmedTeamsGallery();
     initQualifiedTeamsHub();
     renderPublicGroups();
@@ -990,13 +992,15 @@ function initAdminPanel() {
       const activeStageId = document.getElementById('admActiveStageId')?.value || 'round1';
       const headerStatusText = document.getElementById('admHeaderStatusText').value.trim();
       const description = document.getElementById('admDescription').value.trim();
+      const logoUrl = document.getElementById('admLogoUrl')?.value.trim() || '';
 
-      await window.store.updateSettings({ tournamentTitle, prizePool, entryFee, totalSlots, activeStageId, headerStatusText, description });
+      await window.store.updateSettings({ tournamentTitle, prizePool, entryFee, totalSlots, activeStageId, headerStatusText, description, logoUrl });
       updateHeroMetrics();
+      renderBrandLogo();
       renderPublicRoundsFlow();
       renderAdminRoundsTable();
       renderAdminWebsiteContentForm();
-      showToast('Home page content, entry fee & active stage updated live!', 'success');
+      showToast('Home page content, brand logo & settings updated live!', 'success');
     });
   }
 
@@ -1139,6 +1143,31 @@ function renderAdminDashboard() {
   renderAdminWebsiteContentForm();
 }
 
+function renderBrandLogo() {
+  const settings = window.store ? window.store.getSettings() : {};
+  const logoUrl = settings.logoUrl || '';
+
+  const logoIconEl = document.querySelector('#brandLogoBtn .logo-icon');
+  if (logoIconEl) {
+    if (logoUrl) {
+      logoIconEl.innerHTML = `<img src="${logoUrl}" alt="REX Logo" style="width:100%; height:100%; object-fit:contain; border-radius:6px;">`;
+    } else {
+      logoIconEl.innerHTML = `<i data-lucide="trophy"></i>`;
+    }
+  }
+
+  const passLogoEl = document.querySelector('.pass-logo');
+  if (passLogoEl) {
+    if (logoUrl) {
+      passLogoEl.innerHTML = `<img src="${logoUrl}" alt="REX Logo" style="height:28px; vertical-align:middle; margin-right:6px;"> ${settings.tournamentTitle || 'REX ESPORTS'}`;
+    } else {
+      passLogoEl.innerText = settings.tournamentTitle || 'REX ESPORTS';
+    }
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+
 function renderAdminWebsiteContentForm() {
   const settings = window.store ? window.store.getSettings() : {};
   const rounds = window.store ? window.store.getRounds() : [];
@@ -1165,6 +1194,43 @@ function renderAdminWebsiteContentForm() {
   safeSet('admDescription', settings.description || '');
   safeSet('admRulesText', settings.rulesText || '');
   safeSet('admRulesPdfUrl', settings.rulesPdfUrl || '');
+
+  safeSet('admLogoUrl', settings.logoUrl || '');
+  const previewBox = document.getElementById('admLogoPreviewBox');
+  if (previewBox) {
+    if (settings.logoUrl) {
+      previewBox.innerHTML = `<img src="${settings.logoUrl}" style="width:100%; height:100%; object-fit:contain;">`;
+    } else {
+      previewBox.innerHTML = `<i data-lucide="trophy"></i>`;
+    }
+  }
+
+  const logoFileInput = document.getElementById('admLogoFileInput');
+  const logoUrlInput = document.getElementById('admLogoUrl');
+  if (logoFileInput && logoUrlInput) {
+    logoFileInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const dataUrl = evt.target.result;
+          logoUrlInput.value = dataUrl;
+          if (previewBox) previewBox.innerHTML = `<img src="${dataUrl}" style="width:100%; height:100%; object-fit:contain;">`;
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+  }
+
+  const clearLogoBtn = document.getElementById('clearLogoBtn');
+  if (clearLogoBtn) {
+    clearLogoBtn.onclick = () => {
+      if (logoUrlInput) logoUrlInput.value = '';
+      if (logoFileInput) logoFileInput.value = '';
+      if (previewBox) previewBox.innerHTML = `<i data-lucide="trophy"></i>`;
+      showToast('Logo reset to default icon', 'info');
+    };
+  }
 }
 
 function renderAdminRoundsTable() {
