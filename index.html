@@ -66,20 +66,20 @@
       <button class="mobile-toggle" id="mobileNavToggle" aria-label="Toggle Navigation">
         <i data-lucide="menu"></i>
       </button>
+
+      <!-- Mobile Drawer Menu -->
+      <div class="mobile-menu" id="mobileMenu">
+        <button class="mobile-nav-btn active" data-tab="overview"><i data-lucide="home"></i> Home</button>
+        <button class="mobile-nav-btn" data-tab="register"><i data-lucide="user-plus"></i> Register Team</button>
+        <button class="mobile-nav-btn" data-tab="confirmed"><i data-lucide="shield-check"></i> Confirmed Teams</button>
+        <button class="mobile-nav-btn" data-tab="qualified"><i data-lucide="award"></i> Qualified Teams</button>
+        <button class="mobile-nav-btn" data-tab="player-hub"><i data-lucide="key"></i> My Team Status & Room ID</button>
+        <button class="mobile-nav-btn" data-tab="groups"><i data-lucide="layout-grid"></i> Groups & Slots</button>
+        <button class="mobile-nav-btn" data-tab="standings"><i data-lucide="bar-chart-2"></i> Standings</button>
+        <button class="mobile-nav-btn admin-nav-btn" data-tab="admin"><i data-lucide="shield-alert"></i> Admin Panel</button>
+      </div>
     </div>
   </header>
-
-  <!-- Mobile Drawer Menu -->
-  <div class="mobile-menu" id="mobileMenu">
-    <button class="mobile-nav-btn active" data-tab="overview"><i data-lucide="home"></i> Home</button>
-    <button class="mobile-nav-btn" data-tab="register"><i data-lucide="user-plus"></i> Register Team</button>
-    <button class="mobile-nav-btn" data-tab="confirmed"><i data-lucide="shield-check"></i> Confirmed Teams</button>
-    <button class="mobile-nav-btn" data-tab="qualified"><i data-lucide="award"></i> Qualified Teams</button>
-    <button class="mobile-nav-btn" data-tab="player-hub"><i data-lucide="key"></i> My Team Status & Room ID</button>
-    <button class="mobile-nav-btn" data-tab="groups"><i data-lucide="layout-grid"></i> Groups & Slots</button>
-    <button class="mobile-nav-btn" data-tab="standings"><i data-lucide="bar-chart-2"></i> Standings</button>
-    <button class="mobile-nav-btn admin-nav-btn" data-tab="admin"><i data-lucide="shield-alert"></i> Admin Panel</button>
-  </div>
 
   <!-- Main Content Container -->
   <main class="main-content">
@@ -977,6 +977,15 @@
                 </table>
               </div>
 
+              <div class="form-actions mt-4 flex-end">
+                <button class="btn btn-primary btn-lg" id="saveMatchScoresBtn">
+                  <i data-lucide="save"></i> SAVE SCORES & UPDATE STANDINGS
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- SUBTAB 8: WEBSITE CONTENT, TOURNAMENT RULES & SECURITY PIN -->
         <div id="subtab-website-content-mgr" class="admin-subpane">
           <div class="grid-2col mb-4">
@@ -1126,7 +1135,7 @@
 
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="data.js?v=26.0"></script>
-  <script src="app.js?v=26.0"></script>
+  <script src="data.js?v=27.0"></script>
+  <script src="app.js?v=27.0"></script>
 </body>
 </html>

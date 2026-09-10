@@ -24,7 +24,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initQualifiedTeamsHub();
     renderPublicGroups();
     renderPublicStandings();
+    renderPublicRoundsFlow();
     updateHeroMetrics();
+    populateDynamicRoundDropdowns();
 
     // Re-render Admin Dashboard if Admin is currently viewing it
     const dashContent = document.getElementById('adminDashboardContent');
