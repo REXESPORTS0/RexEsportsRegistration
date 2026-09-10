@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>REX ESPORTS | BGMI Tournament & Registration Portal</title>
+  <meta name="description" content="Official REX Esports BGMI Tournament Portal - Secure Team Codes, Dynamic Rounds, Group Capacity, Match Schedules & Admin Control Center.">
+  <meta name="theme-color" content="#0052FF">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- SheetJS (XLSX) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="light-blue-theme">
+
+  <!-- Ambient Background Glows -->
+  <div class="ambient-bg">
+    <div class="glow-orb orb-blue"></div>
+    <div class="glow-orb orb-soft"></div>
+  </div>
+
+  <!-- Header Navigation -->
+  <header class="main-header">
+    <div class="header-container">
+      <div class="brand-logo" id="brandLogoBtn">
+        <div class="logo-icon">
+          <i data-lucide="trophy"></i>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">REX <span class="highlight">ESPORTS</span></span>
+          <span class="brand-subtitle">BGMI TOURNAMENT PORTAL</span>
+        </div>
+      </div>
+
+      <div class="header-status">
+        <span class="live-dot"></span>
+        <span class="status-text" id="headerStatusText">QUALIFIERS - ROUND 1 OPEN</span>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-btn active" data-tab="overview"><i data-lucide="home"></i> Home</button>
+        <button class="nav-btn" data-tab="register"><i data-lucide="user-plus"></i> Register</button>
+        <button class="nav-btn" data-tab="confirmed"><i data-lucide="shield-check"></i> Confirmed Teams</button>
+        <button class="nav-btn" data-tab="qualified"><i data-lucide="award"></i> Qualified Teams</button>
+        <button class="nav-btn" data-tab="player-hub"><i data-lucide="key"></i> Player Hub</button>
+        <button class="nav-btn" data-tab="groups"><i data-lucide="layout-grid"></i> Groups & Slots</button>
+        <button class="nav-btn" data-tab="standings"><i data-lucide="bar-chart-2"></i> Standings</button>
+        <button class="nav-btn admin-nav-btn" data-tab="admin" id="adminNavBtn"><i data-lucide="shield-alert"></i> Admin Panel</button>
+      </nav>
+
+      <button class="mobile-toggle" id="mobileNavToggle" aria-label="Toggle Navigation">
+        <i data-lucide="menu"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Mobile Drawer Menu -->
+  <div class="mobile-menu" id="mobileMenu">
+    <button class="mobile-nav-btn active" data-tab="overview"><i data-lucide="home"></i> Home</button>
+    <button class="mobile-nav-btn" data-tab="register"><i data-lucide="user-plus"></i> Register Team</button>
+    <button class="mobile-nav-btn" data-tab="confirmed"><i data-lucide="shield-check"></i> Confirmed Teams</button>
+    <button class="mobile-nav-btn" data-tab="qualified"><i data-lucide="award"></i> Qualified Teams</button>
+    <button class="mobile-nav-btn" data-tab="player-hub"><i data-lucide="key"></i> My Team Status & Room ID</button>
+    <button class="mobile-nav-btn" data-tab="groups"><i data-lucide="layout-grid"></i> Groups & Slots</button>
+    <button class="mobile-nav-btn" data-tab="standings"><i data-lucide="bar-chart-2"></i> Standings</button>
+    <button class="mobile-nav-btn admin-nav-btn" data-tab="admin"><i data-lucide="shield-alert"></i> Admin Panel</button>
+  </div>
+
+  <!-- Main Content Container -->
+  <main class="main-content">
+
+    <!-- TAB 1: OVERVIEW & HOME -->
+    <section id="tab-overview" class="tab-pane active">
+      <div class="hero-card">
+        <div class="hero-content">
+          <div class="hero-badge"><i data-lucide="sparkles"></i> OFFICIAL BGMI TOURNAMENT</div>
+          <h1 class="hero-title">REX ESPORTS <span class="text-gradient">BGMI CHAMPIONSHIP</span></h1>
+          <p class="hero-description">
+            Register your team, track group slot allocations, check match schedules, view live point tables, and see your qualification status for upcoming rounds!
+          </p>
+          
+          <div class="hero-stats">
+            <div class="stat-card">
+              <span class="stat-value" id="heroPrizePool">₹50,000</span>
+              <span class="stat-label">PRIZE POOL</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value" id="heroRegisteredTeamsCount">0</span>
+              <span class="stat-label">TEAMS REGISTERED</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value" id="heroLobbyCapacity">20</span>
+              <span class="stat-label">SLOTS / LOBBY</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value" id="heroActiveStage">ROUND 1</span>
+              <span class="stat-label">CURRENT STAGE</span>
+            </div>
+          </div>
+
+          <div class="hero-actions">
+            <button class="btn btn-primary btn-lg" onclick="switchTab('register')">
+              <i data-lucide="user-plus"></i> REGISTER YOUR TEAM NOW
+            </button>
+            <button class="btn btn-secondary btn-lg" onclick="switchTab('player-hub')">
+              <i data-lucide="key"></i> MY TEAM STATUS & ROOM ID
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-3col mt-4">
+        <div class="feature-card">
+          <div class="feature-icon blue"><i data-lucide="user-check"></i></div>
+          <h3>Secure Unpredictable Codes</h3>
+          <p>Each team receives a private random 6-character Team Code (e.g. <code>REX-8M2P9X</code>) to access private match details & Room ID.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon green"><i data-lucide="award"></i></div>
+          <h3>Isolated Round Qualification Hubs</h3>
+          <p>Organizers manage Round 1, Round 2, and Finals in separate dedicated sections for smooth stage advancement.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon purple"><i data-lucide="calendar"></i></div>
+          <h3>Group Match Schedules</h3>
+          <p>Check match dates, map schedules (Erangel/Miramar), slot numbers, and live Room ID & Password.</p>
+        </div>
+      </div>
+
+      <div class="grid-2col mt-4">
+        <div class="card">
+          <div class="card-header">
+            <h3><i data-lucide="git-merge"></i> TOURNAMENT STAGES & QUALIFICATION</h3>
+          </div>
+          <div class="card-body">
+            <div class="step-flow" id="publicRoundsFlow"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3><i data-lucide="file-text"></i> OFFICIAL BGMI POINT SYSTEM</h3>
+          </div>
+          <div class="card-body">
+            <div class="point-badge-bar">
+              <i data-lucide="target"></i> 1 FINISH / KILL = 1 POINT
+            </div>
+            <table class="styled-table compact">
+              <thead>
+                <tr><th>RANK</th><th>PLACEMENT PTS</th><th>RANK</th><th>PLACEMENT PTS</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>🥇 1st (WWCD)</td><td><strong class="text-primary">10 PTS</strong></td><td>🥈 2nd</td><td><strong>6 PTS</strong></td></tr>
+                <tr><td>🥉 3rd</td><td><strong>5 PTS</strong></td><td>4th</td><td><strong>4 PTS</strong></td></tr>
+                <tr><td>5th</td><td><strong>3 PTS</strong></td><td>6th</td><td><strong>2 PTS</strong></td></tr>
+                <tr><td>7th - 8th</td><td><strong>1 PT</strong></td><td>9th - 20th</td><td><strong>0 PTS</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: TEAM REGISTRATION FORM -->
+    <section id="tab-register" class="tab-pane">
+      <div class="section-header">
+        <h2><i data-lucide="user-plus"></i> BGMI TEAM REGISTRATION</h2>
+        <p>Register your team below. Your team will receive a secure 6-character private Team Code (e.g. REX-8M2P9X).</p>
+      </div>
+
+      <div class="form-container">
+        <form id="teamRegisterForm" class="card form-card">
+          
+          <div class="form-section-title">
+            <i data-lucide="shield"></i> 1. TEAM IDENTIFICATION
+          </div>
+          
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="regTeamName">Team Name <span class="required">*</span></label>
+              <input type="text" id="regTeamName" class="form-input" placeholder="e.g. Soul Hunters" required>
+            </div>
+            <div class="form-group">
+              <label for="regTeamTag">Team Tag (Max 5 letters) <span class="required">*</span></label>
+              <input type="text" id="regTeamTag" class="form-input" placeholder="e.g. SH" maxlength="5" required>
+            </div>
+          </div>
+
+          <div class="form-group mt-3">
+            <label>Choose Team Logo Mascot</label>
+            <div class="avatar-picker" id="logoPicker">
+              <div class="avatar-option active" data-avatar="🦖"><span>🦖</span></div>
+              <div class="avatar-option" data-avatar="🐺"><span>🐺</span></div>
+              <div class="avatar-option" data-avatar="🦁"><span>🦁</span></div>
+              <div class="avatar-option" data-avatar="👑"><span>👑</span></div>
+              <div class="avatar-option" data-avatar="🔥"><span>🔥</span></div>
+              <div class="avatar-option" data-avatar="⚡"><span>⚡</span></div>
+              <div class="avatar-option" data-avatar="💀"><span>💀</span></div>
+              <div class="avatar-option" data-avatar="🎯"><span>🎯</span></div>
+            </div>
+          </div>
+
+          <div class="form-section-title mt-4">
+            <i data-lucide="user"></i> 2. CAPTAIN (IGL) CONTACT DETAILS
+          </div>
+          
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="regCapName">Captain Full Name <span class="required">*</span></label>
+              <input type="text" id="regCapName" class="form-input" placeholder="e.g. Rahul Sharma" required>
+            </div>
+            <div class="form-group">
+              <label for="regCapPhone">WhatsApp Number <span class="required">*</span></label>
+              <input type="tel" id="regCapPhone" class="form-input" placeholder="e.g. 9876543210" required>
+            </div>
+            <div class="form-group">
+              <label for="regCapEmail">Email Address <span class="required">*</span></label>
+              <input type="email" id="regCapEmail" class="form-input" placeholder="e.g. captain@gmail.com" required>
+            </div>
+            <div class="form-group">
+              <label for="regState">State / City (Optional)</label>
+              <input type="text" id="regState" class="form-input" placeholder="e.g. Delhi / Mumbai">
+            </div>
+          </div>
+
+          <div class="form-section-title mt-4">
+            <i data-lucide="users"></i> 3. BGMI ROSTER (4 MAIN PLAYERS + 1 SUB OPTIONAL)
+          </div>
+
+          <div class="player-box">
+            <div class="player-box-header"><span class="badge blue">P1</span> CAPTAIN / IGL</div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="p1Name">In-Game Name (IGN) <span class="required">*</span></label>
+                <input type="text" id="p1Name" class="form-input" placeholder="e.g. SHxGODL" required>
+              </div>
+              <div class="form-group">
+                <label for="p1Id">Character ID (UID) <span class="required">*</span></label>
+                <input type="text" id="p1Id" class="form-input" placeholder="e.g. 5123456789" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="player-box">
+            <div class="player-box-header"><span class="badge blue">P2</span> PLAYER 2</div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="p2Name">In-Game Name (IGN) <span class="required">*</span></label>
+                <input type="text" id="p2Name" class="form-input" placeholder="e.g. SHxJONNY" required>
+              </div>
+              <div class="form-group">
+                <label for="p2Id">Character ID (UID) <span class="required">*</span></label>
+                <input type="text" id="p2Id" class="form-input" placeholder="e.g. 5123456790" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="player-box">
+            <div class="player-box-header"><span class="badge blue">P3</span> PLAYER 3</div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="p3Name">In-Game Name (IGN) <span class="required">*</span></label>
+                <input type="text" id="p3Name" class="form-input" placeholder="e.g. SHxGOBLIN" required>
+              </div>
+              <div class="form-group">
+                <label for="p3Id">Character ID (UID) <span class="required">*</span></label>
+                <input type="text" id="p3Id" class="form-input" placeholder="e.g. 5123456791" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="player-box">
+            <div class="player-box-header"><span class="badge blue">P4</span> PLAYER 4</div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="p4Name">In-Game Name (IGN) <span class="required">*</span></label>
+                <input type="text" id="p4Name" class="form-input" placeholder="e.g. SHxHECTOR" required>
+              </div>
+              <div class="form-group">
+                <label for="p4Id">Character ID (UID) <span class="required">*</span></label>
+                <input type="text" id="p4Id" class="form-input" placeholder="e.g. 5123456792" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="player-box optional">
+            <div class="player-box-header"><span class="badge gray">SUB</span> SUBSTITUTE PLAYER (OPTIONAL)</div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="pSubName">Substitute IGN</label>
+                <input type="text" id="pSubName" class="form-input" placeholder="e.g. SHxNEO">
+              </div>
+              <div class="form-group">
+                <label for="pSubId">Substitute Character ID</label>
+                <input type="text" id="pSubId" class="form-input" placeholder="e.g. 5123456793">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group mt-3">
+            <label class="custom-checkbox">
+              <input type="checkbox" id="rulesConsent" required>
+              <span class="checkmark"></span>
+              <span>I declare our roster will play fair without emulators or hacks, and all Character IDs are genuine.</span>
+            </label>
+          </div>
+
+          <div class="form-actions mt-4">
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="submitRegisterBtn">
+              <i data-lucide="send"></i> SUBMIT TEAM REGISTRATION
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- TAB 3: CONFIRMED TEAMS GALLERY (PRIVATE CODE PRIVACY) -->
+    <section id="tab-confirmed" class="tab-pane">
+      <div class="section-header">
+        <h2><i data-lucide="shield-check"></i> CONFIRMED REGISTERED TEAMS</h2>
+        <p>Browse all confirmed and verified teams registered for the REX Esports BGMI Tournament.</p>
+      </div>
+
+      <div class="filter-bar card mb-4">
+        <div class="form-group flex-1">
+          <input type="text" id="confirmedSearchInput" class="form-input" placeholder="Search team name, tag, or captain...">
+        </div>
+        <div class="form-group">
+          <select id="confirmedGroupFilter" class="form-select">
+            <option value="all">All Groups</option>
+            <option value="Group A">Group A</option>
+            <option value="Group B">Group B</option>
+            <option value="Group C">Group C</option>
+            <option value="Group D">Group D</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="teams-grid" id="confirmedTeamsGrid"></div>
+    </section>
+
+    <!-- TAB 4: QUALIFIED TEAMS HUB -->
+    <section id="tab-qualified" class="tab-pane">
+      <div class="section-header">
+        <h2><i data-lucide="award"></i> QUALIFIED TEAMS HUB</h2>
+        <p>Official list of teams that have qualified for Round 2, Semi-Finals, and Grand Finals!</p>
+      </div>
+
+      <div class="stage-tabs-bar mb-4" id="qualifiedStageTabs"></div>
+
+      <div class="card">
+        <div class="table-responsive">
+          <table class="styled-table">
+            <thead>
+              <tr>
+                <th>QUALIFIED RANK</th>
+                <th>TEAM NAME</th>
+                <th>GROUP</th>
+                <th>SLOT #</th>
+                <th>QUALIFICATION STATUS</th>
+              </tr>
+            </thead>
+            <tbody id="qualifiedTeamsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: PLAYER MATCH PORTAL -->
+    <section id="tab-player-hub" class="tab-pane">
+      <div class="section-header">
+        <h2><i data-lucide="key"></i> MY TEAM STATUS & ROOM ID PORTAL</h2>
+        <p>Check your assigned Group, Lobby Slot Number, Qualification Status, Match Schedule, and Room ID & Password.</p>
+      </div>
+
+      <div class="card search-card">
+        <div class="search-form">
+          <div class="form-group flex-1">
+            <label for="playerSearchQuery">Enter Your Private Team Code (e.g. REX-8M2P9X) OR Captain WhatsApp Number</label>
+            <div class="input-with-icon">
+              <i data-lucide="search"></i>
+              <input type="text" id="playerSearchQuery" class="form-input" placeholder="e.g. REX-8M2P9X or 9876543210">
+            </div>
+          </div>
+          <button type="button" class="btn btn-primary" id="playerSearchBtn">
+            <i data-lucide="arrow-right"></i> LOOKUP MY TEAM
+          </button>
+        </div>
+      </div>
+
+      <div id="playerMatchResult" class="mt-4">
+        <div class="empty-state card text-center">
+          <div class="empty-icon"><i data-lucide="search-code"></i></div>
+          <h3>ENTER YOUR PRIVATE TEAM CODE TO VIEW YOUR MATCH STATUS & SCHEDULE</h3>
+          <p>Find your Team Code on your Registration Card or in your Captain's WhatsApp confirmation.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: GROUPS & SLOTS MATRIX -->
+    <section id="tab-groups" class="tab-pane">
+      <div class="section-header">
+        <h2><i data-lucide="layout-grid"></i> GROUPS & LOBBY SLOT MATRIX</h2>
+        <p>Check your assigned Lobby Slot Number before joining the match room.</p>
+      </div>
+
+      <div class="group-tab-bar mb-4" id="publicGroupTabs"></div>
+      <div id="publicSlotsContainer"></div>
+    </section>
+
+    <!-- TAB 7: STANDINGS -->
+    <section id="tab-standings" class="tab-pane">
+      <div class="section-header">
+        <h2><i data-lucide="bar-chart-2"></i> POINTS TABLE & LEADERBOARD</h2>
+        <p>Live standings with Placement Points, Finish/Kill Points, WWCD counts, and overall rankings.</p>
+      </div>
+
+      <div class="card mb-4">
+        <div class="filter-bar">
+          <div class="form-group">
+            <label>Select Stage:</label>
+            <select id="standingsStageSelect" class="form-select"></select>
+          </div>
+          <div class="form-group">
+            <label>Select Group:</label>
+            <select id="standingsGroupSelect" class="form-select">
+              <option value="all">OVERALL ALL GROUPS</option>
+              <option value="Group A">GROUP A</option>
+              <option value="Group B">GROUP B</option>
+              <option value="Group C">GROUP C</option>
+              <option value="Group D">GROUP D</option>
+            </select>
+          </div>
+          <div class="form-group flex-1">
+            <label>Search Team:</label>
+            <input type="text" id="standingsSearchInput" class="form-input" placeholder="Search team...">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-responsive">
+          <table class="styled-table" id="publicLeaderboardTable">
+            <thead>
+              <tr>
+                <th>RANK</th>
+                <th>TEAM NAME</th>
+                <th>MATCHES</th>
+                <th>WWCD 🏆</th>
+                <th>PLACEMENT PTS</th>
+                <th>FINISH/KILL PTS</th>
+                <th>TOTAL PTS</th>
+                <th>STATUS</th>
+              </tr>
+            </thead>
+            <tbody id="publicLeaderboardBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 8: ADMIN PANEL (ORG OWNER ONLY) -->
+    <section id="tab-admin" class="tab-pane">
+      
+      <div id="adminLockScreen" class="card admin-lock-card text-center">
+        <div class="lock-icon"><i data-lucide="lock"></i></div>
+        <h2>ORG OWNER ADMIN CONTROL CENTER</h2>
+        <p>Restricted access for Tournament Organizers. Enter Security Key PIN.</p>
+        
+        <div class="pin-box mt-3">
+          <input type="password" id="adminPinInput" class="form-input text-center" placeholder="Enter Security Key PIN" maxlength="30">
+          <button type="button" class="btn btn-primary mt-3" id="adminLoginBtn">
+            <i data-lucide="key-round"></i> UNLOCK ADMIN PANEL
+          </button>
+        </div>
+        <small class="text-muted d-block mt-3" style="font-size:0.75rem;">
+          <i data-lucide="shield-check"></i> SHA-256 Hashed Verification Enabled. Secret key shortcut: <strong>Ctrl + Shift + A</strong>
+        </small>
+      </div>
+
+      <div id="adminDashboardContent" class="admin-dashboard d-none">
+        
+        <div class="card admin-top-bar mb-3">
+          <div class="admin-info">
+            <div class="admin-avatar">REX</div>
+            <div>
+              <div class="admin-title">ORGANIZER ADMIN CONTROL CENTER</div>
+              <div class="admin-subtext">Manage Isolated Rounds, Group Capacity, Multi-Round Qualification & Excel Exports</div>
+            </div>
+          </div>
+
+          <div class="admin-subtabs">
+            <button class="admin-subtab active" data-subtab="teams-mgr"><i data-lucide="database"></i> Teams & Excel</button>
+            <button class="admin-subtab" data-subtab="round-settings-mgr"><i data-lucide="git-merge"></i> Manage Rounds & Capacity</button>
+            <button class="admin-subtab" data-subtab="qualify-mgr"><i data-lucide="award"></i> Round Qualification Hubs</button>
+            <button class="admin-subtab" data-subtab="schedule-mgr"><i data-lucide="calendar"></i> Match Schedules</button>
+            <button class="admin-subtab" data-subtab="groups-mgr"><i data-lucide="layout-grid"></i> Auto & Manual Slots</button>
+            <button class="admin-subtab" data-subtab="room-mgr"><i data-lucide="radio"></i> Broadcast Room ID/Pass</button>
+            <button class="admin-subtab" data-subtab="points-mgr"><i data-lucide="edit-3"></i> Add Match Scores</button>
+          </div>
+
+          <button class="btn btn-danger btn-sm" id="adminLogoutBtn">
+            <i data-lucide="log-out"></i> Logout
+          </button>
+        </div>
+
+        <div class="grid-4col mb-4">
+          <div class="metric-card">
+            <div class="metric-icon blue"><i data-lucide="users"></i></div>
+            <div>
+              <div class="metric-val" id="admTotalTeams">0</div>
+              <div class="metric-lbl">Total Registered Teams</div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon green"><i data-lucide="shield-check"></i></div>
+            <div>
+              <div class="metric-val" id="admApprovedTeams">0</div>
+              <div class="metric-lbl">Approved Lineups</div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon purple"><i data-lucide="git-merge"></i></div>
+            <div>
+              <div class="metric-val" id="admTotalRounds">0</div>
+              <div class="metric-lbl">Active Dynamic Rounds</div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon gold"><i data-lucide="file-spreadsheet"></i></div>
+            <div>
+              <div class="metric-val">EXCEL READY</div>
+              <div class="metric-lbl">Sync & Export to Laptop</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 1: TEAMS MANAGER -->
+        <div id="subtab-teams-mgr" class="admin-subpane active">
+          <div class="card">
+            <div class="card-header flex-between">
+              <h3><i data-lucide="database"></i> REGISTERED TEAMS DATABASE (EXCEL EXPORT)</h3>
+              <div class="header-actions">
+                <button class="btn btn-success" id="exportExcelBtn">
+                  <i data-lucide="file-spreadsheet"></i> EXPORT TO EXCEL (.XLSX) TO LAPTOP
+                </button>
+              </div>
+            </div>
+            
+            <div class="card-body">
+              <div class="filter-bar mb-3">
+                <div class="form-group flex-1">
+                  <input type="text" id="adminTeamSearch" class="form-input" placeholder="Search team, captain, WhatsApp, code, or character ID...">
+                </div>
+                <div class="form-group">
+                  <select id="adminStatusFilter" class="form-select">
+                    <option value="all">All Statuses</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Rejected">Rejected</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="styled-table" id="adminTeamsTable">
+                  <thead>
+                    <tr>
+                      <th>PRIVATE TEAM CODE</th>
+                      <th>TEAM NAME</th>
+                      <th>CAPTAIN (IGL)</th>
+                      <th>WHATSAPP / EMAIL</th>
+                      <th>GROUP</th>
+                      <th>SLOT</th>
+                      <th>QUALIFICATION STATUS</th>
+                      <th>STATUS</th>
+                      <th>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adminTeamsTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 2: MANAGE ROUNDS & CAPACITY -->
+        <div id="subtab-round-settings-mgr" class="admin-subpane">
+          <div class="grid-2col">
+            <div class="card">
+              <div class="card-header">
+                <h3><i data-lucide="plus-circle"></i> ADD NEW TOURNAMENT ROUND</h3>
+                <p class="subtitle">Create custom tournament rounds (e.g. Round 1, Round 2, Semi-Finals, Finals) and set qualification rules.</p>
+              </div>
+              <div class="card-body">
+                <form id="addRoundForm" class="form-grid">
+                  <div class="form-group full-width">
+                    <label>Round Name *</label>
+                    <input type="text" id="newRoundName" class="form-input" placeholder="e.g. Round 2 (Quarter Finals)" required>
+                  </div>
+                  <div class="form-group">
+                    <label>Auto-Qualify Top Teams Per Group</label>
+                    <input type="number" id="newRoundQualifyTop" class="form-input" value="8" min="0" max="20" required>
+                  </div>
+                  <div class="form-group">
+                    <label>Lobby Capacity Limit (Slots/Lobby)</label>
+                    <input type="number" id="newRoundLobbyCap" class="form-input" value="20" min="4" max="25" required>
+                  </div>
+                  <div class="form-actions full-width mt-2">
+                    <button type="submit" class="btn btn-primary btn-block">
+                      <i data-lucide="plus"></i> CREATE NEW TOURNAMENT ROUND
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3><i data-lucide="git-merge"></i> ACTIVE DYNAMIC ROUNDS</h3>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="styled-table">
+                    <thead>
+                      <tr>
+                        <th>ROUND NAME</th>
+                        <th>AUTO QUALIFY</th>
+                        <th>SLOTS / LOBBY</th>
+                        <th>ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody id="adminRoundsTableBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 3: ISOLATED ROUND QUALIFICATION HUBS -->
+        <div id="subtab-qualify-mgr" class="admin-subpane">
+          <div class="card mb-4">
+            <div class="card-header">
+              <h3><i data-lucide="award"></i> ISOLATED ROUND QUALIFICATION SECTIONS</h3>
+              <p class="subtitle">Select a round tab below to view ONLY the teams participating in that specific round and advance them!</p>
+            </div>
+            <div class="card-body">
+              <!-- Dynamic Round Subtabs Bar -->
+              <div class="stage-tabs-bar mb-3" id="admQualifyRoundSubtabs"></div>
+
+              <div class="form-grid mt-3">
+                <div class="form-group">
+                  <label>Target Promotion Status Badge *</label>
+                  <select id="admQualifyTargetStatusSelect" class="form-select">
+                    <option value="Qualified for Round 2">Qualified for Round 2 🏆</option>
+                    <option value="Qualified for Quarter Finals">Qualified for Quarter Finals ⚡</option>
+                    <option value="Qualified for Semi Finals">Qualified for Semi Finals 🔥</option>
+                    <option value="Qualified for Grand Finals">Qualified for Grand Finals 👑</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Auto-Qualify Action</label>
+                  <button type="button" class="btn btn-primary" id="autoQualifyRoundBtn" style="margin-top:0.25rem;">
+                    <i data-lucide="wand-2"></i> AUTO-QUALIFY TOP TEAMS FOR THIS ROUND
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header flex-between">
+              <h3><i data-lucide="users"></i> TEAMS IN THIS ROUND ONLY</h3>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="styled-table">
+                  <thead>
+                    <tr>
+                      <th>TEAM CODE</th>
+                      <th>TEAM NAME</th>
+                      <th>CURRENT GROUP</th>
+                      <th>SLOT #</th>
+                      <th>CURRENT PTS</th>
+                      <th>QUALIFICATION STATUS (MANUAL OVERRIDE)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adminQualifyTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 4: GROUP MATCH SCHEDULE MANAGER -->
+        <div id="subtab-schedule-mgr" class="admin-subpane">
+          <div class="card">
+            <div class="card-header">
+              <h3><i data-lucide="calendar"></i> GROUP & TEAM MATCH SCHEDULE GENERATOR</h3>
+            </div>
+
+            <div class="card-body">
+              <form id="scheduleForm" class="form-grid">
+                <div class="form-group">
+                  <label>Group *</label>
+                  <select id="schGroup" class="form-select" required>
+                    <option value="Group A">Group A</option>
+                    <option value="Group B">Group B</option>
+                    <option value="Group C">Group C</option>
+                    <option value="Group D">Group D</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Stage *</label>
+                  <select id="schStage" class="form-select" required></select>
+                </div>
+                <div class="form-group">
+                  <label>Match # *</label>
+                  <input type="text" id="schMatchNum" class="form-input" placeholder="e.g. Match #1" required>
+                </div>
+                <div class="form-group">
+                  <label>Match Date & Time *</label>
+                  <input type="datetime-local" id="schTime" class="form-input" required>
+                </div>
+                <div class="form-group">
+                  <label>Selected Map *</label>
+                  <select id="schMap" class="form-select">
+                    <option value="Erangel">Erangel (Day)</option>
+                    <option value="Miramar">Miramar (Desert)</option>
+                    <option value="Sanhok">Sanhok (Jungle)</option>
+                    <option value="Vikendi">Vikendi (Snow)</option>
+                  </select>
+                </div>
+                <div class="form-actions full-width mt-2">
+                  <button type="submit" class="btn btn-primary">
+                    <i data-lucide="plus-circle"></i> PUBLISH MATCH SCHEDULE
+                  </button>
+                </div>
+              </form>
+
+              <div class="mt-4">
+                <h4>ACTIVE MATCH SCHEDULES</h4>
+                <div class="table-responsive mt-2">
+                  <table class="styled-table">
+                    <thead>
+                      <tr>
+                        <th>GROUP</th>
+                        <th>STAGE</th>
+                        <th>MATCH #</th>
+                        <th>DATE & TIME</th>
+                        <th>MAP</th>
+                        <th>ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody id="adminSchedulesTableBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 5: AUTO & MANUAL SLOTS -->
+        <div id="subtab-groups-mgr" class="admin-subpane">
+          <div class="card mb-4">
+            <div class="card-header flex-between">
+              <div>
+                <h3><i data-lucide="arrow-right-left"></i> MANUAL TEAM GROUP & SLOT TRANSFER</h3>
+                <p class="subtitle">Move any team to a new Group & Slot number.</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <form id="transferTeamForm" class="form-grid">
+                <div class="form-group">
+                  <label>Select Team to Move *</label>
+                  <select id="trTeamSelect" class="form-select" required></select>
+                </div>
+                <div class="form-group">
+                  <label>Target Group *</label>
+                  <select id="trTargetGroup" class="form-select" required>
+                    <option value="Group A">Group A</option>
+                    <option value="Group B">Group B</option>
+                    <option value="Group C">Group C</option>
+                    <option value="Group D">Group D</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Target Slot Number *</label>
+                  <input type="number" id="trTargetSlot" class="form-input" value="1" min="1" max="25" required>
+                </div>
+                <div class="form-actions full-width mt-2">
+                  <button type="submit" class="btn btn-primary">
+                    <i data-lucide="arrow-right-left"></i> EXECUTE TEAM GROUP TRANSFER
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header flex-between">
+              <div>
+                <h3><i data-lucide="layout-grid"></i> AUTOMATED GROUP ALLOCATOR</h3>
+              </div>
+              <div class="header-actions">
+                <button class="btn btn-primary" id="autoAssignGroupsBtn">
+                  <i data-lucide="wand-2"></i> AUTO-CREATE LOBBIES
+                </button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div id="adminGroupsGrid"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 6: BROADCAST ROOM ID -->
+        <div id="subtab-room-mgr" class="admin-subpane">
+          <div class="card">
+            <div class="card-header">
+              <h3><i data-lucide="radio"></i> BROADCAST ROOM ID & PASSWORD</h3>
+            </div>
+
+            <div class="card-body">
+              <form id="broadcastRoomForm" class="form-grid">
+                <div class="form-group">
+                  <label>Select Group *</label>
+                  <select id="bcGroup" class="form-select" required>
+                    <option value="Group A">Group A</option>
+                    <option value="Group B">Group B</option>
+                    <option value="Group C">Group C</option>
+                    <option value="Group D">Group D</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label>Select Stage *</label>
+                  <select id="bcStage" class="form-select" required></select>
+                </div>
+
+                <div class="form-group">
+                  <label>BGMI Room ID *</label>
+                  <input type="text" id="bcRoomId" class="form-input" placeholder="e.g. 8945201" required>
+                </div>
+
+                <div class="form-group">
+                  <label>BGMI Room Password *</label>
+                  <input type="text" id="bcRoomPass" class="form-input" placeholder="e.g. rex123" required>
+                </div>
+
+                <div class="form-group">
+                  <label>Match Date & Time *</label>
+                  <input type="datetime-local" id="bcMatchTime" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                  <label>Selected Map</label>
+                  <select id="bcMap" class="form-select">
+                    <option value="Erangel">Erangel</option>
+                    <option value="Miramar">Miramar</option>
+                    <option value="Sanhok">Sanhok</option>
+                  </select>
+                </div>
+
+                <div class="form-actions full-width mt-2">
+                  <button type="submit" class="btn btn-primary btn-lg">
+                    <i data-lucide="send"></i> BROADCAST ROOM ID & PASS
+                  </button>
+                </div>
+              </form>
+
+              <div class="mt-4">
+                <h4>ACTIVE ROOM BROADCASTS</h4>
+                <div class="table-responsive mt-2">
+                  <table class="styled-table">
+                    <thead>
+                      <tr>
+                        <th>GROUP</th>
+                        <th>STAGE</th>
+                        <th>MATCH TIME</th>
+                        <th>MAP</th>
+                        <th>ROOM ID</th>
+                        <th>PASSWORD</th>
+                        <th>ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody id="adminBroadcastsBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 7: SCORES -->
+        <div id="subtab-points-mgr" class="admin-subpane">
+          <div class="card">
+            <div class="card-header">
+              <h3><i data-lucide="edit-3"></i> ADD MATCH RESULTS & CALCULATE POINTS</h3>
+            </div>
+
+            <div class="card-body">
+              <div class="form-grid mb-3">
+                <div class="form-group">
+                  <label>Stage:</label>
+                  <select id="scoreStageSelect" class="form-select"></select>
+                </div>
+
+                <div class="form-group">
+                  <label>Group:</label>
+                  <select id="scoreGroupSelect" class="form-select">
+                    <option value="Group A">Group A</option>
+                    <option value="Group B">Group B</option>
+                    <option value="Group C">Group C</option>
+                    <option value="Group D">Group D</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label>Match Number:</label>
+                  <select id="scoreMatchNumSelect" class="form-select">
+                    <option value="Match 1">Match 1</option>
+                    <option value="Match 2">Match 2</option>
+                    <option value="Match 3">Match 3</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="styled-table">
+                  <thead>
+                    <tr>
+                      <th>SLOT</th>
+                      <th>TEAM NAME</th>
+                      <th>PLACEMENT RANK (1st-20th)</th>
+                      <th>TOTAL FINISH/KILLS</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adminScoreEntryBody"></tbody>
+                </table>
+              </div>
+
+              <div class="form-actions mt-4 flex-end">
+                <button class="btn btn-primary btn-lg" id="saveMatchScoresBtn">
+                  <i data-lucide="save"></i> SAVE SCORES & UPDATE STANDINGS
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal Registration Pass with Screenshot Warning -->
+  <div class="modal-backdrop d-none" id="registrationModal">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeRegistrationModal()">&times;</button>
+      
+      <div class="registration-pass" id="printablePass">
+        <div class="pass-header">
+          <div class="pass-logo">REX ESPORTS</div>
+          <div class="pass-badge">REGISTRATION PASS</div>
+        </div>
+
+        <div class="pass-body">
+          <div class="pass-code-banner">
+            <span class="code-label">YOUR PRIVATE TEAM CODE</span>
+            <span class="code-value" id="modalTeamCode">REX-8M2P9X</span>
+          </div>
+
+          <!-- Screenshot & Code Warning Note -->
+          <div class="card mb-3" style="background:#fffbe0; border:1px solid #ffe58f; padding:0.75rem 1rem; color:#873800; font-size:0.85rem;">
+            <strong style="display:flex; align-items:center; gap:0.4rem; color:#d46b08; margin-bottom:0.25rem;">
+              <i data-lucide="alert-triangle"></i> IMPORTANT NOTICE FOR TEAM CAPTAINS:
+            </strong>
+            Please <strong>TAKE A SCREENSHOT OR WRITE DOWN YOUR TEAM CODE</strong>! This code is private to your team and required to access your Match Room ID & Password in the Player Hub!
+          </div>
+
+          <div class="pass-grid">
+            <div><span class="lbl">TEAM NAME:</span> <strong id="modalTeamName">SOUL HUNTERS</strong></div>
+            <div><span class="lbl">CAPTAIN:</span> <strong id="modalCapName">Rahul Sharma</strong></div>
+            <div><span class="lbl">WHATSAPP:</span> <strong id="modalCapPhone">9876543210</strong></div>
+            <div><span class="lbl">STATUS:</span> <span class="badge green" id="modalStatus">CONFIRMED</span></div>
+          </div>
+
+          <div class="pass-roster mt-3">
+            <span class="lbl mb-1 d-block">REGISTERED LINEUP</span>
+            <div class="roster-chips" id="modalRosterChips"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions mt-4 flex-center">
+        <button class="btn btn-secondary" onclick="window.print()"><i data-lucide="printer"></i> PRINT PASS</button>
+        <button class="btn btn-primary" onclick="goToPlayerHubWithCode()"><i data-lucide="key"></i> CHECK ROOM ID</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
