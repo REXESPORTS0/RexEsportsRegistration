@@ -636,7 +636,18 @@ function initAdminPanel() {
   if (!loginBtn) return;
 
   const handleLogin = async () => {
-    window.unlockAdminDirectly();
+    const pin = pinInput.value.trim();
+    if (!pin) return showToast('Please enter Admin PIN to unlock', 'error');
+    const isValid = await window.store.verifyAdminPin(pin);
+
+    if (isValid) {
+      lockScreen.classList.add('d-none');
+      dashboardContent.classList.remove('d-none');
+      showToast('Admin Control Center Unlocked!', 'success');
+      renderAdminDashboard();
+    } else {
+      showToast('Access Denied: Invalid Security PIN', 'error');
+    }
   };
 
   loginBtn.addEventListener('click', handleLogin);
