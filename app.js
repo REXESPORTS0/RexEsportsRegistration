@@ -1019,16 +1019,16 @@ function renderAdminRoundsTable() {
   if (window.lucide) lucide.createIcons();
 }
 
-function deleteRoundFromAdmin(id) {
+window.deleteRoundFromAdmin = function(id) {
   if (confirm('Delete this tournament round?')) {
-    window.store.deleteRound(id);
+    if (window.store) window.store.deleteRound(id);
     renderAdminRoundsTable();
     populateDynamicRoundDropdowns();
     renderPublicRoundsFlow();
     initAdminQualifyRoundSubtabs();
     showToast('Round deleted', 'info');
   }
-}
+};
 
 function populateTeamTransferDropdown() {
   const select = document.getElementById('trTeamSelect');
@@ -1038,13 +1038,15 @@ function populateTeamTransferDropdown() {
   select.innerHTML = teams.map(t => `<option value="${t.code}">${t.teamName} (${t.code} - Currently: ${t.group} Slot #${t.slot})</option>`).join('');
 }
 
-function deleteTeamFromAdmin(code) {
+window.deleteTeamFromAdmin = function(code) {
   if (confirm(`Delete team ${code}?`)) {
-    window.store.deleteTeam(code);
+    if (window.store) window.store.deleteTeam(code);
     renderAdminTeamsTable();
+    renderAdminGroupsGrid();
+    renderConfirmedTeamsGallery();
     showToast('Team deleted', 'info');
   }
-}
+};
 
 function renderAdminSchedulesTable() {
   const tbody = document.getElementById('adminSchedulesTableBody');
@@ -1060,7 +1062,7 @@ function renderAdminSchedulesTable() {
       <td>${new Date(s.time).toLocaleString()}</td>
       <td><span class="badge blue">${s.map}</span></td>
       <td>
-        <button class="btn btn-danger btn-sm" onclick="window.store.deleteSchedule('${s.id}'); renderAdminSchedulesTable(); showToast('Schedule deleted', 'info');">
+        <button class="btn btn-danger btn-sm" onclick="window.deleteScheduleFromAdmin('${s.id}')">
           <i data-lucide="trash-2"></i>
         </button>
       </td>
@@ -1069,6 +1071,14 @@ function renderAdminSchedulesTable() {
 
   if (window.lucide) lucide.createIcons();
 }
+
+window.deleteScheduleFromAdmin = function(id) {
+  if (confirm('Delete this match schedule?')) {
+    if (window.store) window.store.deleteSchedule(id);
+    renderAdminSchedulesTable();
+    showToast('Schedule deleted', 'info');
+  }
+};
 
 function renderAdminGroupsGrid() {
   const container = document.getElementById('adminGroupsGrid');
@@ -1125,7 +1135,7 @@ function renderAdminBroadcastsTable() {
       <td style="font-weight:700; color:var(--primary-blue);">${b.roomId}</td>
       <td style="font-weight:700; color:var(--accent-red);">${b.roomPass}</td>
       <td>
-        <button class="btn btn-danger btn-sm" onclick="window.store.deleteBroadcast('${b.id}'); renderAdminBroadcastsTable(); showToast('Broadcast deleted', 'info');">
+        <button class="btn btn-danger btn-sm" onclick="window.deleteBroadcastFromAdmin('${b.id}')">
           <i data-lucide="trash-2"></i>
         </button>
       </td>
@@ -1134,6 +1144,14 @@ function renderAdminBroadcastsTable() {
 
   if (window.lucide) lucide.createIcons();
 }
+
+window.deleteBroadcastFromAdmin = function(id) {
+  if (confirm('Delete this Room ID & Password broadcast?')) {
+    if (window.store) window.store.deleteBroadcast(id);
+    renderAdminBroadcastsTable();
+    showToast('Broadcast deleted', 'info');
+  }
+};
 
 function renderAdminScoreEntryTable() {
   const group = document.getElementById('scoreGroupSelect')?.value || 'Group A';

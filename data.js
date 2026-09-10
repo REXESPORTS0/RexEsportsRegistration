@@ -356,9 +356,12 @@ class DataStore {
   deleteRound(id) {
     this.state.rounds = this.state.rounds.filter(r => r.id !== id);
     this.save();
+    window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
+
     if (supabaseClient) {
-      supabaseClient.from('rounds').delete().eq('id', id).then(() => {
-        console.log('⚡ Round deleted from Supabase Cloud:', id);
+      supabaseClient.from('rounds').delete().eq('id', id).then(({ error }) => {
+        if (!error) console.log('⚡ Round deleted from Supabase Cloud:', id);
+        else supabaseClient.from('rounds').delete().ilike('id', id);
       }).catch(e => console.warn('Round delete cloud warning:', e));
     }
   }
@@ -441,9 +444,12 @@ class DataStore {
   deleteTeam(code) {
     this.state.teams = this.state.teams.filter(t => t.code !== code);
     this.save();
+    window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
+
     if (supabaseClient) {
-      supabaseClient.from('teams').delete().eq('code', code).then(() => {
-        console.log('⚡ Team deleted from Supabase Cloud:', code);
+      supabaseClient.from('teams').delete().eq('code', code).then(({ error }) => {
+        if (!error) console.log('⚡ Team deleted from Supabase Cloud:', code);
+        else supabaseClient.from('teams').delete().ilike('code', code);
       }).catch(e => console.warn('Delete cloud error:', e));
     }
   }
@@ -509,9 +515,12 @@ class DataStore {
   deleteSchedule(id) {
     this.state.schedules = this.state.schedules.filter(s => s.id !== id);
     this.save();
+    window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
+
     if (supabaseClient) {
-      supabaseClient.from('schedules').delete().eq('id', id).then(() => {
-        console.log('⚡ Schedule deleted from Supabase Cloud:', id);
+      supabaseClient.from('schedules').delete().eq('id', id).then(({ error }) => {
+        if (!error) console.log('⚡ Schedule deleted from Supabase Cloud:', id);
+        else supabaseClient.from('schedules').delete().ilike('id', id);
       }).catch(e => console.warn('Schedule delete cloud error:', e));
     }
   }
@@ -547,9 +556,12 @@ class DataStore {
   deleteBroadcast(id) {
     this.state.broadcasts = this.state.broadcasts.filter(b => b.id !== id);
     this.save();
+    window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
+
     if (supabaseClient) {
-      supabaseClient.from('broadcasts').delete().eq('id', id).then(() => {
-        console.log('⚡ Broadcast deleted from Supabase Cloud:', id);
+      supabaseClient.from('broadcasts').delete().eq('id', id).then(({ error }) => {
+        if (!error) console.log('⚡ Broadcast deleted from Supabase Cloud:', id);
+        else supabaseClient.from('broadcasts').delete().ilike('id', id);
       }).catch(e => console.warn('Broadcast delete cloud error:', e));
     }
   }
