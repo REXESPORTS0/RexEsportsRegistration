@@ -134,17 +134,49 @@ function initNavigation() {
 }
 
 function updateHeroMetrics() {
+  const settings = window.store ? window.store.getSettings() : {};
   const teams = window.store ? window.store.getTeams() : [];
-  const heroCount = document.getElementById('heroRegisteredTeamsCount');
-  if (heroCount) heroCount.textContent = teams.length;
 
-  const cap = window.store ? window.store.getActiveLobbyCapacity() : 16;
-  const heroCap = document.getElementById('heroLobbyCapacity');
-  if (heroCap) heroCap.textContent = cap;
+  const prizeEl = document.getElementById('heroPrizePool');
+  if (prizeEl) prizeEl.textContent = settings.prizePool || '₹50,000';
+
+  const descEl = document.getElementById('heroDescription');
+  if (descEl && settings.description) descEl.textContent = settings.description;
+
+  const countEl = document.getElementById('heroRegisteredTeamsCount');
+  if (countEl) countEl.textContent = teams.length;
+
+  const totalSlots = settings.totalSlots || 64;
+  const remainingSlots = Math.max(0, totalSlots - teams.length);
+  const slotsLeftEl = document.getElementById('heroSlotsLeft');
+  if (slotsLeftEl) slotsLeftEl.textContent = remainingSlots;
+
+  const statusBanner = document.getElementById('headerStatusText');
+  if (statusBanner && settings.headerStatusText) statusBanner.textContent = settings.headerStatusText;
 
   const rounds = window.store ? window.store.getRounds() : [];
   const heroStage = document.getElementById('heroActiveStage');
-  if (heroStage && rounds.length > 0) heroStage.textContent = rounds[0].name.toUpperCase();
+  if (heroStage && rounds.length > 0) {
+    const currentRound = window.store.getRoundById(settings.activeStageId || 'round1') || rounds[0];
+    heroStage.textContent = currentRound.name.toUpperCase();
+  }
+
+  // Update Rules Container
+  const rulesContainer = document.getElementById('publicRulesContainer');
+  if (rulesContainer) {
+    rulesContainer.textContent = settings.rulesText || 'No official rules posted yet.';
+  }
+
+  // Update PDF Rulebook Download button
+  const pdfBtn = document.getElementById('rulesPdfDownloadBtn');
+  if (pdfBtn) {
+    if (settings.rulesPdfUrl && settings.rulesPdfUrl.trim()) {
+      pdfBtn.href = settings.rulesPdfUrl.trim();
+      pdfBtn.classList.remove('d-none');
+    } else {
+      pdfBtn.classList.add('d-none');
+    }
+  }
 }
 
 function populateDynamicRoundDropdowns() {
@@ -833,6 +865,53 @@ function initAdminPanel() {
 
   const saveScoresBtn = document.getElementById('saveMatchScoresBtn');
   if (saveScoresBtn) saveScoresBtn.addEventListener('click', saveMatchScoresFromTable);
+
+  const contentForm = document.getElementById('websiteContentForm');
+  if (contentForm) {
+    contentForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const prizePool = document.getElementById('admPrizePool').value.trim();
+      const totalSlots = parseInt(document.getElementById('admTotalSlots').value) || 64;
+      const headerStatusText = document.getElementById('admHeaderStatusText').value.trim();
+      const description = document.getElementById('admDescription').value.trim();
+
+      await window.store.updateSettings({ prizePool, totalSlots, headerStatusText, description });
+      updateHeroMetrics();
+      showToast('Home page content & prize pool updated live!', 'success');
+    });
+  }
+
+  const rulesForm = document.getElementById('websiteRulesForm');
+  if (rulesForm) {
+    rulesForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const rulesText = document.getElementById('admRulesText').value.trim();
+      const rulesPdfUrl = document.getElementById('admRulesPdfUrl').value.trim();
+
+      await window.store.updateSettings({ rulesText, rulesPdfUrl });
+      updateHeroMetrics();
+      showToast('Tournament rules & PDF link updated live!', 'success');
+    });
+  }
+
+  const pinForm = document.getElementById('adminSecurityPinForm');
+  if (pinForm) {
+    pinForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const currentPin = document.getElementById('admCurrentPin').value;
+      const newPin = document.getElementById('admNewPin').value;
+      const confirmPin = document.getElementById('admConfirmPin').value;
+
+      const isValid = await window.store.verifyAdminPin(currentPin);
+      if (!isValid) return alert('Current Admin PIN is incorrect!');
+      if (newPin !== confirmPin) return alert('New PIN and Confirm PIN do not match!');
+      if (newPin.trim().length < 4) return alert('PIN must be at least 4 characters long!');
+
+      await window.store.setAdminPin(newPin.trim());
+      pinForm.reset();
+      showToast('Master Admin Security PIN updated successfully!', 'success');
+    });
+  }
 }
 
 /* ISOLATED DYNAMIC ROUND QUALIFICATION HUBS IN ADMIN */
@@ -937,6 +1016,28 @@ function renderAdminDashboard() {
   renderAdminGroupsGrid();
   renderAdminBroadcastsTable();
   renderAdminScoreEntryTable();
+  renderAdminWebsiteContentForm();
+}
+
+function renderAdminWebsiteContentForm() {
+  const settings = window.store ? window.store.getSettings() : {};
+  const prizeIn = document.getElementById('admPrizePool');
+  if (prizeIn) prizeIn.value = settings.prizePool || '₹50,000';
+
+  const slotsIn = document.getElementById('admTotalSlots');
+  if (slotsIn) slotsIn.value = settings.totalSlots || 64;
+
+  const headerIn = document.getElementById('admHeaderStatusText');
+  if (headerIn) headerIn.value = settings.headerStatusText || 'QUALIFIERS - ROUND 1 OPEN';
+
+  const descIn = document.getElementById('admDescription');
+  if (descIn) descIn.value = settings.description || '';
+
+  const rulesIn = document.getElementById('admRulesText');
+  if (rulesIn) rulesIn.value = settings.rulesText || '';
+
+  const pdfIn = document.getElementById('admRulesPdfUrl');
+  if (pdfIn) pdfIn.value = settings.rulesPdfUrl || '';
 }
 
 function renderAdminTeamsTable() {

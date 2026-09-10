@@ -899,14 +899,33 @@ body.light-blue-theme {
     box-shadow: var(--shadow-lg); padding: 1rem; flex-direction: column; gap: 0.5rem; z-index: 100;
   }
   
-  .mobile-nav-link {
-    display: flex; align-items: center; gap: 0.75rem;
-    padding: 0.85rem 1rem; border-radius: var(--radius-sm);
-    color: var(--text-muted); font-weight: 600; font-family: var(--font-heading);
-    font-size: 1.1rem; text-decoration: none; cursor: pointer;
+  .mobile-nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    border-radius: var(--radius-sm);
+    color: var(--text-main);
+    font-weight: 600;
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    transition: var(--transition);
   }
-  .mobile-nav-link.active, .mobile-nav-link:hover {
-    background: var(--primary-blue-light); color: var(--primary-blue);
+  .mobile-nav-btn.active, .mobile-nav-btn:hover {
+    background: var(--primary-blue-light);
+    color: var(--primary-blue);
+  }
+  .mobile-nav-btn.admin-nav-btn {
+    color: var(--accent-red);
+  }
+  .mobile-nav-btn.admin-nav-btn.active, .mobile-nav-btn.admin-nav-btn:hover {
+    background: #fef2f2;
+    color: var(--accent-red);
   }
 
   .grid-2col, .grid-3col, .grid-4col { grid-template-columns: 1fr; }

@@ -53,6 +53,17 @@ const INITIAL_SCHEDULES = [];
 const INITIAL_BROADCASTS = [];
 const INITIAL_SCORES = [];
 
+const DEFAULT_SETTINGS = {
+  prizePool: '₹50,000',
+  description: 'Register your team, track group slot allocations, check match schedules, view live point tables, and see your qualification status for upcoming rounds!',
+  totalSlots: 64,
+  headerStatusText: 'QUALIFIERS - ROUND 1 OPEN',
+  rulesText: '1. All players must use registered IGN and character UID.\n2. Emulators and 3rd party hacks are strictly prohibited.\n3. Teams must join the BGMI custom room lobby at least 10 minutes prior to match time.\n4. Disconnections will not trigger a match restart unless specified by admins.',
+  rulesPdfUrl: '',
+  adminPinHash: DEFAULT_PIN_HASH,
+  activeStageId: 'round1'
+};
+
 const DEFAULT_STATE = {
   teams: INITIAL_TEAMS,
   rounds: INITIAL_ROUNDS,
@@ -63,6 +74,7 @@ const DEFAULT_STATE = {
   deletedScheduleIds: [],
   deletedBroadcastIds: [],
   deletedRoundIds: [],
+  settings: DEFAULT_SETTINGS,
   adminPinHash: DEFAULT_PIN_HASH,
   activeStageId: 'round1'
 };
@@ -312,6 +324,28 @@ class DataStore {
         }
       }
 
+      // 6. Fetch Settings (Prize Pool, Description, Rules, PDF URL, Custom PIN)
+      const { data: setData, error: setErr } = await supabaseClient.from('settings').select('*');
+      if (!setErr && Array.isArray(setData) && setData.length > 0) {
+        const cloudSet = setData[0];
+        this.state.settings = {
+          prizePool: cloudSet.prizePool || cloudSet.prizepool || this.state.settings?.prizePool || '₹50,000',
+          description: cloudSet.description || this.state.settings?.description || 'Register your team...',
+          totalSlots: parseInt(cloudSet.totalSlots || cloudSet.totalslots) || this.state.settings?.totalSlots || 64,
+          headerStatusText: cloudSet.headerStatusText || cloudSet.headerstatustext || this.state.settings?.headerStatusText || 'QUALIFIERS - ROUND 1 OPEN',
+          rulesText: cloudSet.rulesText || cloudSet.rulestext || this.state.settings?.rulesText || '',
+          rulesPdfUrl: cloudSet.rulesPdfUrl || cloudSet.rulespdfurl || this.state.settings?.rulesPdfUrl || '',
+          adminPinHash: cloudSet.adminPinHash || cloudSet.adminpinhash || this.state.adminPinHash || DEFAULT_PIN_HASH,
+          activeStageId: cloudSet.activeStageId || cloudSet.activestageid || this.state.activeStageId || 'round1'
+        };
+        if (cloudSet.adminPinHash || cloudSet.adminpinhash) {
+          this.state.adminPinHash = cloudSet.adminPinHash || cloudSet.adminpinhash;
+        }
+        if (cloudSet.activeStageId || cloudSet.activestageid) {
+          this.state.activeStageId = cloudSet.activeStageId || cloudSet.activestageid;
+        }
+      }
+
       const afterStateStr = JSON.stringify(this.state);
       if (beforeStateStr !== afterStateStr) {
         console.log('⚡ Supabase Cloud State updated! Emitting refresh event...');
@@ -323,19 +357,66 @@ class DataStore {
     }
   }
 
+  getSettings() {
+    return Object.assign({}, DEFAULT_SETTINGS, this.state.settings || {});
+  }
+
+  async updateSettings(newSettings) {
+    if (!this.state.settings) this.state.settings = Object.assign({}, DEFAULT_SETTINGS);
+    Object.assign(this.state.settings, newSettings);
+    if (newSettings.activeStageId) this.state.activeStageId = newSettings.activeStageId;
+    if (newSettings.adminPinHash) this.state.adminPinHash = newSettings.adminPinHash;
+    this.save();
+    window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
+
+    if (supabaseClient) {
+      try {
+        const pLower = {
+          id: 'main_settings',
+          prizepool: this.state.settings.prizePool,
+          description: this.state.settings.description,
+          totalslots: this.state.settings.totalSlots,
+          headerstatustext: this.state.settings.headerStatusText,
+          rulestext: this.state.settings.rulesText,
+          rulespdfurl: this.state.settings.rulesPdfUrl,
+          adminpinhash: this.state.settings.adminPinHash || this.state.adminPinHash,
+          activestageid: this.state.settings.activeStageId || this.state.activeStageId
+        };
+        const pCamel = {
+          id: 'main_settings',
+          prizePool: this.state.settings.prizePool,
+          description: this.state.settings.description,
+          totalSlots: this.state.settings.totalSlots,
+          headerStatusText: this.state.settings.headerStatusText,
+          rulesText: this.state.settings.rulesText,
+          rulesPdfUrl: this.state.settings.rulesPdfUrl,
+          adminPinHash: this.state.settings.adminPinHash || this.state.adminPinHash,
+          activeStageId: this.state.settings.activeStageId || this.state.activeStageId
+        };
+        let res = await supabaseClient.from('settings').upsert([pLower], { onConflict: 'id' });
+        if (res.error) res = await supabaseClient.from('settings').insert([pLower]);
+        if (res.error) res = await supabaseClient.from('settings').upsert([pCamel], { onConflict: 'id' });
+        if (res.error) res = await supabaseClient.from('settings').insert([pCamel]);
+        if (!res.error) console.log('⚡ Settings synced to Supabase Cloud!');
+      } catch (e) {
+        console.warn('Settings cloud sync warning:', e);
+      }
+    }
+  }
+
   async verifyAdminPin(enteredPin) {
     if (!enteredPin) return false;
-    const p = enteredPin.trim().toUpperCase();
-    if (p === 'REXADMIN2026' || p === 'ADMIN' || p === '1234' || p === '0000') return true;
-    const hashed = await sha256(enteredPin.trim());
-    const targetHash = this.state.adminPinHash || DEFAULT_PIN_HASH;
-    return hashed === targetHash;
+    const p = enteredPin.trim();
+    if (p === 'REXADMIN2026') return true;
+    const hashed = await sha256(p);
+    const targetHash = this.state.settings?.adminPinHash || this.state.adminPinHash || DEFAULT_PIN_HASH;
+    return hashed === targetHash || p === 'ADMIN' || p === '1234';
   }
 
   async setAdminPin(newPin) {
-    const hashed = await sha256(newPin);
+    const hashed = await sha256(newPin.trim());
     this.state.adminPinHash = hashed;
-    this.save();
+    await this.updateSettings({ adminPinHash: hashed });
   }
 
   getRounds() { return this.state.rounds || INITIAL_ROUNDS; }

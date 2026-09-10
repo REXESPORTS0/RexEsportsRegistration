@@ -90,7 +90,7 @@
         <div class="hero-content">
           <div class="hero-badge"><i data-lucide="sparkles"></i> OFFICIAL BGMI TOURNAMENT</div>
           <h1 class="hero-title">REX ESPORTS <span class="text-gradient">BGMI CHAMPIONSHIP</span></h1>
-          <p class="hero-description">
+          <p class="hero-description" id="heroDescription">
             Register your team, track group slot allocations, check match schedules, view live point tables, and see your qualification status for upcoming rounds!
           </p>
           
@@ -104,8 +104,8 @@
               <span class="stat-label">TEAMS REGISTERED</span>
             </div>
             <div class="stat-card">
-              <span class="stat-value" id="heroLobbyCapacity">20</span>
-              <span class="stat-label">SLOTS / LOBBY</span>
+              <span class="stat-value" id="heroSlotsLeft">64</span>
+              <span class="stat-label">SLOTS REMAINING</span>
             </div>
             <div class="stat-card">
               <span class="stat-value" id="heroActiveStage">ROUND 1</span>
@@ -172,6 +172,21 @@
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <!-- OFFICIAL TOURNAMENT RULES & DOWNLOADABLE PDF -->
+      <div class="card mt-4">
+        <div class="card-header flex-between">
+          <h3><i data-lucide="shield-check"></i> TOURNAMENT RULES & GUIDELINES</h3>
+          <div id="rulesPdfDownloadContainer">
+            <a id="rulesPdfDownloadBtn" href="#" target="_blank" class="btn btn-secondary btn-sm d-none">
+              <i data-lucide="download"></i> DOWNLOAD OFFICIAL RULEBOOK (PDF)
+            </a>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="publicRulesContainer" style="white-space: pre-wrap; line-height: 1.6; font-size: 0.95rem; color: var(--text-main);"></div>
         </div>
       </div>
     </section>
@@ -512,6 +527,7 @@
             <button class="admin-subtab" data-subtab="groups-mgr"><i data-lucide="layout-grid"></i> Auto & Manual Slots</button>
             <button class="admin-subtab" data-subtab="room-mgr"><i data-lucide="radio"></i> Broadcast Room ID/Pass</button>
             <button class="admin-subtab" data-subtab="points-mgr"><i data-lucide="edit-3"></i> Add Match Scores</button>
+            <button class="admin-subtab" data-subtab="website-content-mgr"><i data-lucide="settings"></i> Content, Rules & Security</button>
           </div>
 
           <button class="btn btn-danger btn-sm" id="adminLogoutBtn">
@@ -956,11 +972,94 @@
                 </table>
               </div>
 
-              <div class="form-actions mt-4 flex-end">
-                <button class="btn btn-primary btn-lg" id="saveMatchScoresBtn">
-                  <i data-lucide="save"></i> SAVE SCORES & UPDATE STANDINGS
-                </button>
+        <!-- SUBTAB 8: WEBSITE CONTENT, TOURNAMENT RULES & SECURITY PIN -->
+        <div id="subtab-website-content-mgr" class="admin-subpane">
+          <div class="grid-2col mb-4">
+            <!-- Card 1: Website Hero & Prize Pool Content -->
+            <div class="card">
+              <div class="card-header">
+                <h3><i data-lucide="layout"></i> EDIT HOME PAGE CONTENT & PRIZE POOL</h3>
+                <p class="subtitle">Updates sync live across all mobile phones and laptops via Supabase Cloud!</p>
               </div>
+              <div class="card-body">
+                <form id="websiteContentForm" class="form-grid">
+                  <div class="form-group">
+                    <label>Prize Pool Display Amount *</label>
+                    <input type="text" id="admPrizePool" class="form-input" placeholder="e.g. ₹50,000" required>
+                  </div>
+                  <div class="form-group">
+                    <label>Total Tournament Slots Limit *</label>
+                    <input type="number" id="admTotalSlots" class="form-input" value="64" min="8" max="500" required>
+                  </div>
+                  <div class="form-group full-width">
+                    <label>Top Header Live Banner Text *</label>
+                    <input type="text" id="admHeaderStatusText" class="form-input" placeholder="e.g. QUALIFIERS - ROUND 1 OPEN" required>
+                  </div>
+                  <div class="form-group full-width">
+                    <label>Tournament Overview / Description *</label>
+                    <textarea id="admDescription" class="form-input" rows="4" placeholder="Enter tournament overview description..." required></textarea>
+                  </div>
+                  <div class="form-actions full-width mt-2">
+                    <button type="submit" class="btn btn-primary btn-block">
+                      <i data-lucide="save"></i> SAVE HOME PAGE CONTENT TO CLOUD
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <!-- Card 2: Tournament Rules & PDF Rulebook Upload URL -->
+            <div class="card">
+              <div class="card-header">
+                <h3><i data-lucide="file-text"></i> EDIT TOURNAMENT RULES & PDF LINK</h3>
+                <p class="subtitle">Type rules and optionally paste a PDF download link for players!</p>
+              </div>
+              <div class="card-body">
+                <form id="websiteRulesForm" class="form-grid">
+                  <div class="form-group full-width">
+                    <label>Official Tournament Rules & Guidelines *</label>
+                    <textarea id="admRulesText" class="form-input" rows="6" placeholder="Type tournament rules line by line..." required></textarea>
+                  </div>
+                  <div class="form-group full-width">
+                    <label>Downloadable Rulebook PDF URL (Direct Link to PDF file)</label>
+                    <input type="url" id="admRulesPdfUrl" class="form-input" placeholder="https://example.com/rulebook.pdf (Leave blank if none)">
+                  </div>
+                  <div class="form-actions full-width mt-2">
+                    <button type="submit" class="btn btn-primary btn-block">
+                      <i data-lucide="save"></i> SAVE RULES & PDF LINK TO CLOUD
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: Admin Security PIN / Password Manager -->
+          <div class="card">
+            <div class="card-header">
+              <h3><i data-lucide="lock"></i> CHANGE ADMIN SECURITY PIN / PASSWORD</h3>
+              <p class="subtitle">Change your master access password for total security. Only you will have access!</p>
+            </div>
+            <div class="card-body">
+              <form id="adminSecurityPinForm" class="form-grid">
+                <div class="form-group">
+                  <label>Current Admin PIN / Password *</label>
+                  <input type="password" id="admCurrentPin" class="form-input" placeholder="Enter current PIN" required>
+                </div>
+                <div class="form-group">
+                  <label>New Custom Secret PIN / Password *</label>
+                  <input type="password" id="admNewPin" class="form-input" placeholder="Enter new secret password" minlength="4" required>
+                </div>
+                <div class="form-group">
+                  <label>Confirm New PIN / Password *</label>
+                  <input type="password" id="admConfirmPin" class="form-input" placeholder="Re-enter new secret password" minlength="4" required>
+                </div>
+                <div class="form-actions full-width mt-2">
+                  <button type="submit" class="btn btn-danger btn-block">
+                    <i data-lucide="key"></i> CHANGE & UPDATE MASTER SECURITY PASSWORD
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
@@ -1018,7 +1117,7 @@
 
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="data.js?v=23.0"></script>
-  <script src="app.js?v=23.0"></script>
+  <script src="data.js?v=24.0"></script>
+  <script src="app.js?v=24.0"></script>
 </body>
 </html>
