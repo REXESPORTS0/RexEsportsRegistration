@@ -143,34 +143,6 @@ class DataStore {
       console.error('Supabase Exception:', e);
       return false;
     }
-      teamName: team.teamName,
-      tag: team.tag,
-      capName: team.capName,
-      capPhone: team.capPhone,
-      capEmail: team.capEmail,
-      group: team.group,
-      slot: team.slot,
-      status: team.status || 'Approved',
-      qualificationStatus: team.qualificationStatus || 'Round 1 Competitor',
-      players: team.players
-    };
-
-    const payloads = [payloadLowercase, payloadCamel];
-
-    for (const p of payloads) {
-      try {
-        const { data, error } = await supabaseClient.from('teams').upsert([p], { onConflict: 'code' });
-        if (!error) {
-          console.log('⚡ Team successfully synced to Supabase Cloud!', team.code);
-          return true;
-        }
-      } catch (e) {
-        console.warn('Payload attempt failed, trying fallback payload format...', e);
-      }
-    }
-
-    console.error('❌ Supabase Insert/Upsert failed.');
-    return false;
   }
 
   // Fetch all Cloud Data (Teams, Broadcasts, Schedules, Scores, Rounds) from Supabase - Cloud is Authority
