@@ -890,8 +890,138 @@ body.light-blue-theme {
 
 @media (max-width: 900px) {
   .nav-menu { display: none; }
-  .mobile-toggle { display: block; }
-  .grid-2col { grid-template-columns: 1fr; }
-  .hero-title { font-size: 2.2rem; }
+  .mobile-toggle { display: block; background: transparent; border: none; font-size: 1.5rem; color: var(--text-main); cursor: pointer; padding: 0.5rem; }
+  
+  .mobile-menu {
+    position: absolute; top: 100%; left: 0; right: 0;
+    background: white; border-bottom: 1px solid var(--border-color);
+    box-shadow: var(--shadow-lg); padding: 1rem; flex-direction: column; gap: 0.5rem; z-index: 100;
+  }
+  
+  .mobile-nav-link {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.85rem 1rem; border-radius: var(--radius-sm);
+    color: var(--text-muted); font-weight: 600; font-family: var(--font-heading);
+    font-size: 1.1rem; text-decoration: none; cursor: pointer;
+  }
+  .mobile-nav-link.active, .mobile-nav-link:hover {
+    background: var(--primary-blue-light); color: var(--primary-blue);
+  }
+
+  .grid-2col, .grid-3col, .grid-4col { grid-template-columns: 1fr; }
+  .hero-title { font-size: 2.1rem; }
   .search-form { flex-direction: column; align-items: stretch; }
+  .hero-banner { padding: 2rem 1.25rem; text-align: center; }
+  .hero-actions { justify-content: center; flex-wrap: wrap; }
+}
+
+/* ==========================================================================
+   MOBILE SCREEN TOUCH & RESPONSIVE OPTIMIZATIONS (< 600px)
+   ========================================================================== */
+@media (max-width: 600px) {
+  body { font-size: 0.92rem; }
+  .header-container { padding: 0.75rem 1rem; }
+  .main-content { padding-top: 1rem; padding-bottom: 3rem; }
+  
+  /* Touch target sizes & preventing auto-zoom on mobile inputs */
+  button, input, select, textarea {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .form-input, .form-select, .btn {
+    min-height: 46px;
+    font-size: 16px !important; /* Prevents mobile browser auto-zoom on input focus */
+  }
+
+  .btn {
+    padding: 0.75rem 1.25rem;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .btn-sm {
+    min-height: 36px;
+    font-size: 0.85rem !important;
+    width: auto;
+  }
+
+  /* Horizontal swipeable subtabs for rounds & groups */
+  .stage-subtabs, .admin-subtabs, .nav-tabs {
+    display: flex;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.5rem;
+    scrollbar-width: none;
+    gap: 0.4rem;
+  }
+  .stage-subtabs::-webkit-scrollbar, .admin-subtabs::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .stage-tab-btn, .admin-subtab {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    padding: 0.5rem 0.85rem;
+  }
+
+  /* Player Registration Roster Grid on Mobile */
+  .player-input-card {
+    padding: 0.85rem;
+  }
+  .avatar-options {
+    justify-content: center;
+  }
+  .avatar-option {
+    width: 44px; height: 44px; font-size: 1.3rem;
+  }
+
+  /* Table responsiveness & smooth swipe */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius-sm);
+    margin-bottom: 1rem;
+  }
+  .styled-table th, .styled-table td {
+    padding: 0.65rem 0.75rem;
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+
+  /* Modal on small mobile displays */
+  .modal-backdrop {
+    padding: 0.75rem;
+    align-items: flex-end;
+  }
+  .modal-card {
+    padding: 1.25rem;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  /* Toast Notification positioning on Mobile */
+  .toast-container {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    width: auto;
+  }
+  .toast {
+    font-size: 0.85rem;
+    padding: 0.75rem 1rem;
+  }
+
+  /* Registration Pass Badge & Display */
+  .pass-code-banner {
+    padding: 0.75rem;
+  }
+  .code-value {
+    font-size: 1.75rem;
+    letter-spacing: 2px;
+  }
 }

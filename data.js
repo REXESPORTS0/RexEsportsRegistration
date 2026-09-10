@@ -129,6 +129,10 @@ class DataStore {
   constructor() {
     this.state = this.load();
     this.syncFromSupabaseCloud();
+    // Auto-poll Supabase Cloud every 10 seconds for real-time updates across mobile & desktop!
+    setInterval(() => {
+      this.syncFromSupabaseCloud();
+    }, 10000);
   }
 
   load() {
@@ -149,14 +153,13 @@ class DataStore {
     }
   }
 
-  // Cloud Sync to Supabase Table with Smart Column Format Retry
+  // Cloud Sync to Supabase Table with Smart Column Format Retry & Upsert
   async syncToSupabase(team) {
     if (!supabaseClient) {
       console.warn('Supabase client is not connected. Check SUPABASE_URL and SUPABASE_ANON_KEY in data.js');
       return false;
     }
 
-    // Format 1: Lowercase (Default PostgreSQL Column Names)
     const payloadLowercase = {
       code: team.code,
       teamname: team.teamName,
@@ -171,7 +174,6 @@ class DataStore {
       players: team.players
     };
 
-    // Format 2: CamelCase
     const payloadCamel = {
       code: team.code,
       teamName: team.teamName,
@@ -186,31 +188,13 @@ class DataStore {
       players: team.players
     };
 
-    // Format 3: Snake_case
-    const payloadSnake = {
-      code: team.code,
-      team_name: team.teamName,
-      tag: team.tag,
-      cap_name: team.capName,
-      cap_phone: team.capPhone,
-      cap_email: team.capEmail,
-      group: team.group,
-      slot: team.slot,
-      status: team.status || 'Approved',
-      qualification_status: team.qualificationStatus || 'Round 1 Competitor',
-      players: team.players
-    };
-
-    const payloads = [payloadLowercase, payloadCamel, payloadSnake];
+    const payloads = [payloadLowercase, payloadCamel];
 
     for (const p of payloads) {
       try {
-        const { data, error } = await supabaseClient.from('teams').insert([p]);
+        const { data, error } = await supabaseClient.from('teams').upsert([p], { onConflict: 'code' });
         if (!error) {
           console.log('⚡ Team successfully synced to Supabase Cloud!', team.code);
-          if (typeof showToast === 'function') {
-            showToast('Team synced to Cloud DB!', 'success');
-          }
           return true;
         }
       } catch (e) {
@@ -218,30 +202,20 @@ class DataStore {
       }
     }
 
-    console.error('❌ Supabase Insert failed across all payload format attempts.');
-    if (typeof showToast === 'function') {
-      showToast('Supabase Sync Error: Column names mismatch. Run SQL Setup Script in Supabase!', 'error');
-    }
+    console.error('❌ Supabase Insert/Upsert failed.');
     return false;
   }
 
-  // Fetch teams from Supabase Cloud on load if configured
+  // Fetch all Cloud Data (Teams, Broadcasts, Schedules, Scores) from Supabase on load & interval
   async syncFromSupabaseCloud() {
     if (!supabaseClient) return;
     try {
-      const { data, error } = await supabaseClient.from('teams').select('*');
-      if (error) {
-        console.error('❌ Supabase Select Error:', error.message);
-        if (typeof showToast === 'function' && error.message.includes('policy')) {
-          showToast('Supabase Error: Disable RLS or add Select policy on "teams" table!', 'error');
-        }
-        return;
-      }
-      if (data && data.length > 0) {
-        console.log(`⚡ Fetched ${data.length} teams from Supabase Cloud!`);
-        
-        // Convert cloud teams to normalized objects
-        const cloudTeamsNormalized = data.map(cloudTeam => ({
+      let updated = false;
+
+      // 1. Fetch Teams
+      const { data: teamsData, error: teamsErr } = await supabaseClient.from('teams').select('*');
+      if (!teamsErr && teamsData && teamsData.length > 0) {
+        const cloudTeamsNormalized = teamsData.map(cloudTeam => ({
           code: cloudTeam.code,
           teamName: cloudTeam.teamName || cloudTeam.teamname || 'Team',
           tag: cloudTeam.tag || '',
@@ -257,7 +231,6 @@ class DataStore {
           players: typeof cloudTeam.players === 'string' ? JSON.parse(cloudTeam.players) : (cloudTeam.players || [])
         }));
 
-        // Merge with existing state, prioritizing cloud records
         cloudTeamsNormalized.forEach(ct => {
           const idx = this.state.teams.findIndex(t => t.code === ct.code);
           if (idx >= 0) {
@@ -266,7 +239,84 @@ class DataStore {
             this.state.teams.unshift(ct);
           }
         });
+        updated = true;
+      }
 
+      // 2. Fetch Broadcasts (Room ID & Passwords)
+      const { data: bcData, error: bcErr } = await supabaseClient.from('broadcasts').select('*');
+      if (!bcErr && bcData && bcData.length > 0) {
+        bcData.forEach(bc => {
+          const normalized = {
+            id: bc.id,
+            group: bc.group,
+            stage: bc.stage,
+            roomId: bc.roomId || bc.roomid || '',
+            roomPass: bc.roomPass || bc.roompass || '',
+            matchTime: bc.matchTime || bc.matchtime || '',
+            map: bc.map || 'Erangel',
+            isLive: bc.isLive !== false
+          };
+          const idx = this.state.broadcasts.findIndex(b => b.group === normalized.group && b.stage === normalized.stage);
+          if (idx >= 0) this.state.broadcasts[idx] = normalized;
+          else this.state.broadcasts.unshift(normalized);
+        });
+        updated = true;
+      }
+
+      // 3. Fetch Schedules
+      const { data: schData, error: schErr } = await supabaseClient.from('schedules').select('*');
+      if (!schErr && schData && schData.length > 0) {
+        schData.forEach(sch => {
+          const normalized = {
+            id: sch.id,
+            group: sch.group,
+            stage: sch.stage,
+            matchNum: sch.matchNum || sch.matchnum || 'Match 1',
+            time: sch.time,
+            map: sch.map || 'Erangel'
+          };
+          const idx = this.state.schedules.findIndex(s => s.id === normalized.id);
+          if (idx >= 0) this.state.schedules[idx] = normalized;
+          else this.state.schedules.unshift(normalized);
+        });
+        updated = true;
+      }
+
+      // 4. Fetch Match Scores (Points Table)
+      const { data: scData, error: scErr } = await supabaseClient.from('match_scores').select('*');
+      if (!scErr && scData && scData.length > 0) {
+        scData.forEach(sc => {
+          const normalized = {
+            stage: sc.stage,
+            group: sc.group,
+            matchNum: sc.matchNum || sc.matchnum,
+            scores: typeof sc.scores === 'string' ? JSON.parse(sc.scores) : (sc.scores || [])
+          };
+          const idx = this.state.matchScores.findIndex(m => m.stage === normalized.stage && m.group === normalized.group && m.matchNum === normalized.matchNum);
+          if (idx >= 0) this.state.matchScores[idx] = normalized;
+          else this.state.matchScores.unshift(normalized);
+        });
+        updated = true;
+      }
+
+      // 5. Fetch Rounds
+      const { data: rndData, error: rndErr } = await supabaseClient.from('rounds').select('*');
+      if (!rndErr && rndData && rndData.length > 0) {
+        rndData.forEach(r => {
+          const normalized = {
+            id: r.id,
+            name: r.name,
+            autoQualifyTopN: parseInt(r.autoQualifyTopN || r.autoqualifytopn) || 4,
+            lobbyCapacity: parseInt(r.lobbyCapacity || r.lobbycapacity) || 16
+          };
+          const idx = this.state.rounds.findIndex(rnd => rnd.id === normalized.id);
+          if (idx >= 0) this.state.rounds[idx] = normalized;
+          else this.state.rounds.push(normalized);
+        });
+        updated = true;
+      }
+
+      if (updated) {
         this.save();
         window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
       }
@@ -296,19 +346,54 @@ class DataStore {
 
   addRound(name, autoQualifyTopN = 4, lobbyCapacity = 16) {
     const id = `rnd_${Date.now()}`;
-    this.state.rounds.push({ id, name, autoQualifyTopN, lobbyCapacity });
+    const roundObj = { id, name, autoQualifyTopN, lobbyCapacity };
+    this.state.rounds.push(roundObj);
     this.save();
+
+    if (supabaseClient) {
+      supabaseClient.from('rounds').upsert([{
+        id: roundObj.id,
+        name: roundObj.name,
+        autoQualifyTopN: roundObj.autoQualifyTopN,
+        autoqualifytopn: roundObj.autoQualifyTopN,
+        lobbyCapacity: roundObj.lobbyCapacity,
+        lobbycapacity: roundObj.lobbyCapacity
+      }], { onConflict: 'id' }).then(() => {
+        console.log('⚡ Round synced to Supabase Cloud:', name);
+      }).catch(e => console.warn('Round sync warning:', e));
+    }
     return id;
   }
 
   updateRound(id, updatedFields) {
     const rnd = this.state.rounds.find(r => r.id === id);
-    if (rnd) { Object.assign(rnd, updatedFields); this.save(); }
+    if (rnd) {
+      Object.assign(rnd, updatedFields);
+      this.save();
+
+      if (supabaseClient) {
+        supabaseClient.from('rounds').upsert([{
+          id: rnd.id,
+          name: rnd.name,
+          autoQualifyTopN: rnd.autoQualifyTopN,
+          autoqualifytopn: rnd.autoQualifyTopN,
+          lobbyCapacity: rnd.lobbyCapacity,
+          lobbycapacity: rnd.lobbyCapacity
+        }], { onConflict: 'id' }).then(() => {
+          console.log('⚡ Round updated in Supabase Cloud:', id);
+        }).catch(e => console.warn('Round update cloud warning:', e));
+      }
+    }
   }
 
   deleteRound(id) {
     this.state.rounds = this.state.rounds.filter(r => r.id !== id);
     this.save();
+    if (supabaseClient) {
+      supabaseClient.from('rounds').delete().eq('id', id).then(() => {
+        console.log('⚡ Round deleted from Supabase Cloud:', id);
+      }).catch(e => console.warn('Round delete cloud warning:', e));
+    }
   }
 
   getTeams() { return this.state.teams || []; }
@@ -357,12 +442,17 @@ class DataStore {
       team.group = newGroup;
       team.slot = parseInt(newSlot) || team.slot;
       this.save();
+      this.syncToSupabase(team);
     }
   }
 
   updateTeamStatus(code, status) {
     const team = this.state.teams.find(t => t.code === code);
-    if (team) { team.status = status; this.save(); }
+    if (team) {
+      team.status = status;
+      this.save();
+      this.syncToSupabase(team);
+    }
   }
 
   updateTeamQualification(code, qualificationStatus, targetStage = null) {
@@ -377,12 +467,18 @@ class DataStore {
         team.currentStage = 'finals';
       }
       this.save();
+      this.syncToSupabase(team);
     }
   }
 
   deleteTeam(code) {
     this.state.teams = this.state.teams.filter(t => t.code !== code);
     this.save();
+    if (supabaseClient) {
+      supabaseClient.from('teams').delete().eq('code', code).then(() => {
+        console.log('⚡ Team deleted from Supabase Cloud:', code);
+      }).catch(e => console.warn('Delete cloud error:', e));
+    }
   }
 
   autoAllocateGroups() {
@@ -395,6 +491,7 @@ class DataStore {
       const sIdx = (idx % cap) + 1;
       team.group = groupNames[gIdx] || `Group ${gIdx + 1}`;
       team.slot = sIdx;
+      this.syncToSupabase(team);
     });
 
     this.save();
@@ -418,29 +515,108 @@ class DataStore {
   }
 
   getSchedules() { return this.state.schedules || []; }
-  addSchedule(sch) { sch.id = `SCH-${Date.now()}`; this.state.schedules.unshift(sch); this.save(); }
-  deleteSchedule(id) { this.state.schedules = this.state.schedules.filter(s => s.id !== id); this.save(); }
+  
+  async addSchedule(sch) {
+    sch.id = sch.id || `SCH-${Date.now()}`;
+    this.state.schedules.unshift(sch);
+    this.save();
+
+    if (supabaseClient) {
+      try {
+        await supabaseClient.from('schedules').upsert([{
+          id: sch.id,
+          group: sch.group,
+          stage: sch.stage,
+          matchNum: sch.matchNum,
+          matchnum: sch.matchNum,
+          time: sch.time,
+          map: sch.map
+        }], { onConflict: 'id' });
+        console.log('⚡ Schedule synced to Supabase Cloud!');
+      } catch (e) {
+        console.warn('Schedule cloud sync warning:', e);
+      }
+    }
+  }
+
+  deleteSchedule(id) {
+    this.state.schedules = this.state.schedules.filter(s => s.id !== id);
+    this.save();
+    if (supabaseClient) {
+      supabaseClient.from('schedules').delete().eq('id', id).then(() => {
+        console.log('⚡ Schedule deleted from Supabase Cloud:', id);
+      }).catch(e => console.warn('Schedule delete cloud error:', e));
+    }
+  }
 
   getBroadcasts() { return this.state.broadcasts || []; }
   getBroadcastForGroup(groupName) { return this.getBroadcasts().find(b => b.group === groupName && b.isLive); }
-  saveBroadcast(bc) {
+
+  async saveBroadcast(bc) {
     const idx = this.state.broadcasts.findIndex(b => b.group === bc.group && b.stage === bc.stage);
     if (idx >= 0) this.state.broadcasts[idx] = bc;
     else { bc.id = `BC-${Date.now()}`; this.state.broadcasts.unshift(bc); }
     this.save();
+
+    if (supabaseClient) {
+      try {
+        const payload = {
+          id: bc.id || `BC-${bc.group}-${bc.stage}`,
+          group: bc.group,
+          stage: bc.stage,
+          roomId: bc.roomId,
+          roomid: bc.roomId,
+          roomPass: bc.roomPass,
+          roompass: bc.roomPass,
+          matchTime: bc.matchTime,
+          map: bc.map,
+          isLive: bc.isLive !== false
+        };
+        await supabaseClient.from('broadcasts').upsert([payload], { onConflict: 'id' });
+        console.log('⚡ Broadcast credentials synced to Supabase Cloud!');
+      } catch (e) {
+        console.warn('Broadcast cloud sync warning:', e);
+      }
+    }
   }
-  deleteBroadcast(id) { this.state.broadcasts = this.state.broadcasts.filter(b => b.id !== id); this.save(); }
+
+  deleteBroadcast(id) {
+    this.state.broadcasts = this.state.broadcasts.filter(b => b.id !== id);
+    this.save();
+    if (supabaseClient) {
+      supabaseClient.from('broadcasts').delete().eq('id', id).then(() => {
+        console.log('⚡ Broadcast deleted from Supabase Cloud:', id);
+      }).catch(e => console.warn('Broadcast delete cloud error:', e));
+    }
+  }
 
   static getPlacementPoints(rank) {
     const ptsMap = { 1: 10, 2: 6, 3: 5, 4: 4, 5: 3, 6: 2, 7: 1, 8: 1 };
     return ptsMap[rank] || 0;
   }
 
-  saveMatchScore(scoreObj) {
+  async saveMatchScore(scoreObj) {
     const idx = this.state.matchScores.findIndex(m => m.stage === scoreObj.stage && m.group === scoreObj.group && m.matchNum === scoreObj.matchNum);
     if (idx >= 0) this.state.matchScores[idx] = scoreObj;
     else this.state.matchScores.unshift(scoreObj);
     this.save();
+
+    if (supabaseClient) {
+      try {
+        const scoreId = `MS-${scoreObj.stage}-${scoreObj.group}-${scoreObj.matchNum}`.replace(/\s+/g, '_');
+        await supabaseClient.from('match_scores').upsert([{
+          id: scoreId,
+          stage: scoreObj.stage,
+          group: scoreObj.group,
+          matchNum: scoreObj.matchNum,
+          matchnum: scoreObj.matchNum,
+          scores: scoreObj.scores
+        }], { onConflict: 'id' });
+        console.log('⚡ Match score synced to Supabase Cloud!');
+      } catch (e) {
+        console.warn('Match score cloud sync warning:', e);
+      }
+    }
   }
 
   getLeaderboard(stage = 'round1', groupFilter = 'all') {
