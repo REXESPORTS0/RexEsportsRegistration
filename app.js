@@ -942,6 +942,7 @@ function initAdminPanel() {
       updateHeroMetrics();
       renderPublicRoundsFlow();
       renderAdminRoundsTable();
+      renderAdminWebsiteContentForm();
       showToast('Home page content, entry fee & active stage updated live!', 'success');
     });
   }
@@ -955,6 +956,7 @@ function initAdminPanel() {
 
       await window.store.updateSettings({ rulesText, rulesPdfUrl });
       updateHeroMetrics();
+      renderAdminWebsiteContentForm();
       showToast('Tournament rules & PDF link updated live!', 'success');
     });
   }

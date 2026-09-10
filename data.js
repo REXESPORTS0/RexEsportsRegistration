@@ -375,24 +375,27 @@ class DataStore {
       const { data: setData, error: setErr } = await supabaseClient.from('settings').select('*');
       if (!setErr && Array.isArray(setData) && setData.length > 0) {
         const cloudSet = setData[0];
-        this.state.settings = {
-          tournamentTitle: cloudSet.tournamentTitle || cloudSet.tournamenttitle || this.state.settings?.tournamentTitle || 'REX ESPORTS BGMI CHAMPIONSHIP',
-          prizePool: cloudSet.prizePool || cloudSet.prizepool || this.state.settings?.prizePool || '₹50,000',
-          entryFee: cloudSet.entryFee || cloudSet.entryfee || this.state.settings?.entryFee || 'FREE',
-          description: cloudSet.description || this.state.settings?.description || 'Register your team...',
-          totalSlots: parseInt(cloudSet.totalSlots || cloudSet.totalslots) || this.state.settings?.totalSlots || 64,
-          headerStatusText: cloudSet.headerStatusText || cloudSet.headerstatustext || this.state.settings?.headerStatusText || 'QUALIFIERS - ROUND 1 OPEN',
-          rulesText: cloudSet.rulesText || cloudSet.rulestext || this.state.settings?.rulesText || '',
-          rulesPdfUrl: cloudSet.rulesPdfUrl || cloudSet.rulespdfurl || this.state.settings?.rulesPdfUrl || '',
-          adminPinHash: cloudSet.adminPinHash || cloudSet.adminpinhash || this.state.adminPinHash || DEFAULT_PIN_HASH,
-          activeStageId: cloudSet.activeStageId || cloudSet.activestageid || this.state.activeStageId || 'round1'
+        const settingsFromTable = {
+          tournamentTitle: cloudSet.tournamentTitle || cloudSet.tournamenttitle,
+          prizePool: cloudSet.prizePool || cloudSet.prizepool,
+          entryFee: cloudSet.entryFee || cloudSet.entryfee,
+          description: cloudSet.description,
+          totalSlots: parseInt(cloudSet.totalSlots || cloudSet.totalslots),
+          headerStatusText: cloudSet.headerStatusText || cloudSet.headerstatustext,
+          rulesText: cloudSet.rulesText || cloudSet.rulestext,
+          rulesPdfUrl: cloudSet.rulesPdfUrl || cloudSet.rulespdfurl,
+          adminPinHash: cloudSet.adminPinHash || cloudSet.adminpinhash,
+          activeStageId: cloudSet.activeStageId || cloudSet.activestageid
         };
-        if (cloudSet.adminPinHash || cloudSet.adminpinhash) {
-          this.state.adminPinHash = cloudSet.adminPinHash || cloudSet.adminpinhash;
-        }
-        if (cloudSet.activeStageId || cloudSet.activestageid) {
-          this.state.activeStageId = cloudSet.activeStageId || cloudSet.activestageid;
-        }
+        Object.keys(settingsFromTable).forEach(k => {
+          if (settingsFromTable[k] === undefined || settingsFromTable[k] === null || (typeof settingsFromTable[k] === 'number' && isNaN(settingsFromTable[k]))) {
+            delete settingsFromTable[k];
+          }
+        });
+        // Combine defaults -> settingsFromTable -> current state (current state & SYS_SETTINGS take priority!)
+        this.state.settings = Object.assign({}, DEFAULT_SETTINGS, settingsFromTable, this.state.settings);
+        if (this.state.settings.adminPinHash) this.state.adminPinHash = this.state.settings.adminPinHash;
+        if (this.state.settings.activeStageId) this.state.activeStageId = this.state.settings.activeStageId;
       }
 
       this.save();
