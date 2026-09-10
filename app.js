@@ -613,8 +613,9 @@ function initAdminPanel() {
 
   if (!loginBtn) return;
 
-  loginBtn.addEventListener('click', async () => {
+  const handleLogin = async () => {
     const pin = pinInput.value.trim();
+    if (!pin) return showToast('Please enter Admin PIN (Default: REXADMIN2026)', 'error');
     const isValid = await window.store.verifyAdminPin(pin);
 
     if (isValid) {
@@ -623,7 +624,15 @@ function initAdminPanel() {
       showToast('Admin Control Center Unlocked!', 'success');
       renderAdminDashboard();
     } else {
-      showToast('Invalid Security PIN key', 'error');
+      showToast('Invalid PIN! Default PIN is: REXADMIN2026', 'error');
+    }
+  };
+
+  loginBtn.addEventListener('click', handleLogin);
+  pinInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleLogin();
     }
   });
 
