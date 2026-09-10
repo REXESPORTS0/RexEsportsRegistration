@@ -259,12 +259,13 @@ function renderPublicRoundsFlow() {
     return `
       <div class="flow-item ${isGold ? 'gold' : isActive ? 'active' : ''}">
         <div class="flow-num">${isGold ? '🏆' : (idx + 1)}</div>
-        <div>
-          <h4>
-            ${r.name} (${r.lobbyCapacity} Slots/Lobby) 
-            ${isActive ? '<span style="font-size:0.7rem; background:#00f2fe; color:#000; padding:2px 6px; border-radius:12px; margin-left:6px; font-weight:bold;">LIVE STAGE</span>' : ''}
-          </h4>
-          <p>${r.autoQualifyTopN > 0 ? `Top ${r.autoQualifyTopN} teams per group advance.` : 'Final showdown for Championship Title & Prize Pool!'}</p>
+        <div class="flow-body">
+          <div class="flow-header-row">
+            <h4 class="flow-title">${r.name}</h4>
+            <span class="flow-capacity-badge">${r.lobbyCapacity} Slots/Lobby</span>
+            ${isActive ? '<span class="flow-live-badge">LIVE STAGE</span>' : ''}
+          </div>
+          <p class="flow-desc">${r.autoQualifyTopN > 0 ? `Top ${r.autoQualifyTopN} teams per group advance.` : 'Final showdown for Championship Title & Prize Pool!'}</p>
         </div>
       </div>
     `;
