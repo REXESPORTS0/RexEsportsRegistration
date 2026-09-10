@@ -134,21 +134,21 @@ function initNavigation() {
 }
 
 function updateHeroMetrics() {
-  const teams = window.store.getTeams();
+  const teams = window.store ? window.store.getTeams() : [];
   const heroCount = document.getElementById('heroRegisteredTeamsCount');
   if (heroCount) heroCount.textContent = teams.length;
 
-  const cap = window.store.getActiveLobbyCapacity();
+  const cap = window.store ? window.store.getActiveLobbyCapacity() : 16;
   const heroCap = document.getElementById('heroLobbyCapacity');
   if (heroCap) heroCap.textContent = cap;
 
-  const rounds = window.store.getRounds();
+  const rounds = window.store ? window.store.getRounds() : [];
   const heroStage = document.getElementById('heroActiveStage');
   if (heroStage && rounds.length > 0) heroStage.textContent = rounds[0].name.toUpperCase();
 }
 
 function populateDynamicRoundDropdowns() {
-  const rounds = window.store.getRounds();
+  const rounds = window.store ? window.store.getRounds() : [];
   const ids = ['standingsStageSelect', 'schStage', 'bcStage', 'scoreStageSelect'];
 
   ids.forEach(id => {
@@ -165,7 +165,7 @@ function renderPublicRoundsFlow() {
   const container = document.getElementById('publicRoundsFlow');
   if (!container) return;
 
-  const rounds = window.store.getRounds();
+  const rounds = window.store ? window.store.getRounds() : [];
   container.innerHTML = rounds.map((r, idx) => `
     <div class="flow-item ${idx === rounds.length - 1 ? 'gold' : idx === 0 ? 'active' : ''}">
       <div class="flow-num">${idx === rounds.length - 1 ? '🏆' : (idx + 1)}</div>
@@ -301,7 +301,7 @@ function renderConfirmedTeamsGallery() {
   const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
   const grp = groupFilter ? groupFilter.value : 'all';
 
-  let teams = window.store.getTeams().filter(t => t.status === 'Approved');
+  let teams = (window.store ? window.store.getTeams() : []).filter(t => t.status === 'Approved');
 
   if (grp !== 'all') teams = teams.filter(t => t.group === grp);
   if (query) {
@@ -555,8 +555,9 @@ function renderPublicGroups() {
 
 function renderSlotsForGroup(groupName) {
   const container = document.getElementById('publicSlotsContainer');
-  const capacity = window.store.getActiveLobbyCapacity();
-  const allTeams = window.store.getTeams().filter(t => t.group === groupName && t.status === 'Approved');
+  if (!container) return;
+  const capacity = window.store ? window.store.getActiveLobbyCapacity() : 16;
+  const allTeams = (window.store ? window.store.getTeams() : []).filter(t => t.group === groupName && t.status === 'Approved');
 
   const slotsArray = Array.from({ length: capacity }, (_, i) => {
     const slotNum = i + 1;
@@ -595,7 +596,7 @@ function renderPublicStandings() {
   const group = groupSelect ? groupSelect.value : 'all';
   const searchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
 
-  let leaderboard = window.store.getLeaderboard(stage, group);
+  let leaderboard = window.store ? window.store.getLeaderboard(stage, group) : [];
 
   if (searchQuery) {
     leaderboard = leaderboard.filter(t => t.teamName.toLowerCase().includes(searchQuery));

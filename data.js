@@ -583,10 +583,6 @@ class DataStore {
       }
     }
   }
-        console.warn('Match score cloud sync warning:', e);
-      }
-    }
-  }
 
   getLeaderboard(stage = 'round1', groupFilter = 'all') {
     const teamsMap = {};
