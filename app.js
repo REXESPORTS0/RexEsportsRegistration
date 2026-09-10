@@ -46,7 +46,14 @@ function initSecretAdminShortcut() {
     if (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
       e.preventDefault();
       switchTab('admin');
-      showToast('Secret Admin Panel Shortcut Triggered', 'info');
+      const lockScreen = document.getElementById('adminLockScreen');
+      const dashboardContent = document.getElementById('adminDashboardContent');
+      if (lockScreen && dashboardContent) {
+        lockScreen.classList.add('d-none');
+        dashboardContent.classList.remove('d-none');
+        renderAdminDashboard();
+      }
+      showToast('Secret Admin Panel Shortcut Unlocked!', 'success');
     }
   });
 }

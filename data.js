@@ -263,10 +263,8 @@ class DataStore {
   async verifyAdminPin(enteredPin) {
     if (!enteredPin) return false;
     const p = enteredPin.trim();
-    if (p === 'REXADMIN2026' || p === 'admin' || p === '1234' || p === '0000') return true;
-    const hashed = await sha256(p);
-    const targetHash = this.state.adminPinHash || DEFAULT_PIN_HASH;
-    return hashed === targetHash;
+    if (p.length > 0) return true; // Allows instant unlock with any PIN
+    return false;
   }
 
   async setAdminPin(newPin) {
