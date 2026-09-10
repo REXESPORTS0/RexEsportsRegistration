@@ -685,8 +685,8 @@ window.handleAdminLoginDirectly = async function() {
     if (window.store && typeof window.store.verifyAdminPin === 'function') {
       isValid = await window.store.verifyAdminPin(pin);
     } else {
-      const cleanPin = pin.toUpperCase();
-      isValid = (cleanPin === 'REXADMIN2026' || cleanPin === 'ADMIN' || cleanPin === '1234' || cleanPin === '0000' || cleanPin.length >= 4);
+      const cleanPin = pin.trim();
+      isValid = (cleanPin === 'REXADMIN2026' || cleanPin === 'ADMIN' || cleanPin === '1234');
     }
 
     if (isValid) {
@@ -755,6 +755,7 @@ function initAdminPanel() {
       if (targetPane === 'groups-mgr') { populateTeamTransferDropdown(); renderAdminGroupsGrid(); }
       if (targetPane === 'room-mgr') renderAdminBroadcastsTable();
       if (targetPane === 'points-mgr') renderAdminScoreEntryTable();
+      if (targetPane === 'website-content-mgr') renderAdminWebsiteContentForm();
     });
   });
 
@@ -870,12 +871,13 @@ function initAdminPanel() {
   if (contentForm) {
     contentForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const tournamentTitle = document.getElementById('admTournamentTitle')?.value.trim() || 'REX ESPORTS BGMI CHAMPIONSHIP';
       const prizePool = document.getElementById('admPrizePool').value.trim();
       const totalSlots = parseInt(document.getElementById('admTotalSlots').value) || 64;
       const headerStatusText = document.getElementById('admHeaderStatusText').value.trim();
       const description = document.getElementById('admDescription').value.trim();
 
-      await window.store.updateSettings({ prizePool, totalSlots, headerStatusText, description });
+      await window.store.updateSettings({ tournamentTitle, prizePool, totalSlots, headerStatusText, description });
       updateHeroMetrics();
       showToast('Home page content & prize pool updated live!', 'success');
     });
@@ -1021,6 +1023,10 @@ function renderAdminDashboard() {
 
 function renderAdminWebsiteContentForm() {
   const settings = window.store ? window.store.getSettings() : {};
+  
+  const titleIn = document.getElementById('admTournamentTitle');
+  if (titleIn) titleIn.value = settings.tournamentTitle || 'REX ESPORTS BGMI CHAMPIONSHIP';
+
   const prizeIn = document.getElementById('admPrizePool');
   if (prizeIn) prizeIn.value = settings.prizePool || '₹50,000';
 
