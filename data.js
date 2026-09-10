@@ -149,48 +149,80 @@ class DataStore {
     }
   }
 
-  // Cloud Sync to Supabase Table
+  // Cloud Sync to Supabase Table with Smart Column Format Retry
   async syncToSupabase(team) {
     if (!supabaseClient) {
       console.warn('Supabase client is not connected. Check SUPABASE_URL and SUPABASE_ANON_KEY in data.js');
-      return;
+      return false;
     }
-    try {
-      const payload = {
-        code: team.code,
-        teamName: team.teamName,
-        teamname: team.teamName,
-        tag: team.tag,
-        capName: team.capName,
-        capname: team.capName,
-        capPhone: team.capPhone,
-        capphone: team.capPhone,
-        capEmail: team.capEmail,
-        capemail: team.capEmail,
-        group: team.group,
-        slot: team.slot,
-        status: team.status || 'Approved',
-        qualificationStatus: team.qualificationStatus || 'Round 1 Competitor',
-        qualificationstatus: team.qualificationStatus || 'Round 1 Competitor',
-        players: team.players
-      };
 
-      const { data, error } = await supabaseClient.from('teams').insert([payload]);
+    // Format 1: Lowercase (Default PostgreSQL Column Names)
+    const payloadLowercase = {
+      code: team.code,
+      teamname: team.teamName,
+      tag: team.tag,
+      capname: team.capName,
+      capphone: team.capPhone,
+      capemail: team.capEmail,
+      group: team.group,
+      slot: team.slot,
+      status: team.status || 'Approved',
+      qualificationstatus: team.qualificationStatus || 'Round 1 Competitor',
+      players: team.players
+    };
 
-      if (error) {
-        console.error('❌ Supabase Insert Error:', error.message, error.details, error.hint);
-        if (typeof showToast === 'function') {
-          showToast(`Supabase Error: ${error.message}. Check RLS Policy!`, 'error');
+    // Format 2: CamelCase
+    const payloadCamel = {
+      code: team.code,
+      teamName: team.teamName,
+      tag: team.tag,
+      capName: team.capName,
+      capPhone: team.capPhone,
+      capEmail: team.capEmail,
+      group: team.group,
+      slot: team.slot,
+      status: team.status || 'Approved',
+      qualificationStatus: team.qualificationStatus || 'Round 1 Competitor',
+      players: team.players
+    };
+
+    // Format 3: Snake_case
+    const payloadSnake = {
+      code: team.code,
+      team_name: team.teamName,
+      tag: team.tag,
+      cap_name: team.capName,
+      cap_phone: team.capPhone,
+      cap_email: team.capEmail,
+      group: team.group,
+      slot: team.slot,
+      status: team.status || 'Approved',
+      qualification_status: team.qualificationStatus || 'Round 1 Competitor',
+      players: team.players
+    };
+
+    const payloads = [payloadLowercase, payloadCamel, payloadSnake];
+
+    for (const p of payloads) {
+      try {
+        const { data, error } = await supabaseClient.from('teams').insert([p]);
+        if (!error) {
+          console.log('⚡ Team successfully synced to Supabase Cloud!', team.code);
+          if (typeof showToast === 'function') {
+            showToast('Team synced to Cloud DB!', 'success');
+          }
+          return true;
         }
-      } else {
-        console.log('⚡ Team successfully synced to Supabase Cloud!', team.code);
-        if (typeof showToast === 'function') {
-          showToast('Team synced to Cloud DB!', 'success');
-        }
+      } catch (e) {
+        console.warn('Payload attempt failed, trying fallback payload format...', e);
       }
-    } catch (e) {
-      console.error('Supabase Exception:', e);
     }
+
+    console.error('❌ Supabase Insert failed across all payload format attempts.');
+    if (typeof showToast === 'function') {
+      showToast('Supabase Sync Error: Column names mismatch. Run SQL Setup Script in Supabase!', 'error');
+    }
+    return false;
   }
 
   // Fetch teams from Supabase Cloud on load if configured
@@ -200,36 +232,43 @@ class DataStore {
       const { data, error } = await supabaseClient.from('teams').select('*');
       if (error) {
         console.error('❌ Supabase Select Error:', error.message);
+        if (typeof showToast === 'function' && error.message.includes('policy')) {
+          showToast('Supabase Error: Disable RLS or add Select policy on "teams" table!', 'error');
+        }
         return;
       }
       if (data && data.length > 0) {
         console.log(`⚡ Fetched ${data.length} teams from Supabase Cloud!`);
-        let hasNew = false;
-        data.forEach(cloudTeam => {
-          if (!this.state.teams.some(t => t.code === cloudTeam.code)) {
-            const normalized = {
-              code: cloudTeam.code,
-              teamName: cloudTeam.teamName || cloudTeam.teamname || 'Team',
-              tag: cloudTeam.tag || '',
-              logo: cloudTeam.logo || '🦖',
-              capName: cloudTeam.capName || cloudTeam.capname || 'Captain',
-              capPhone: cloudTeam.capPhone || cloudTeam.capphone || '',
-              capEmail: cloudTeam.capEmail || cloudTeam.capemail || '',
-              group: cloudTeam.group || 'Group A',
-              slot: parseInt(cloudTeam.slot) || 1,
-              status: cloudTeam.status || 'Approved',
-              qualificationStatus: cloudTeam.qualificationStatus || cloudTeam.qualificationstatus || 'Round 1 Competitor',
-              currentStage: cloudTeam.currentStage || cloudTeam.currentstage || 'round1',
-              players: typeof cloudTeam.players === 'string' ? JSON.parse(cloudTeam.players) : (cloudTeam.players || [])
-            };
-            this.state.teams.unshift(normalized);
-            hasNew = true;
+        
+        // Convert cloud teams to normalized objects
+        const cloudTeamsNormalized = data.map(cloudTeam => ({
+          code: cloudTeam.code,
+          teamName: cloudTeam.teamName || cloudTeam.teamname || 'Team',
+          tag: cloudTeam.tag || '',
+          logo: cloudTeam.logo || '🦖',
+          capName: cloudTeam.capName || cloudTeam.capname || 'Captain',
+          capPhone: cloudTeam.capPhone || cloudTeam.capphone || '',
+          capEmail: cloudTeam.capEmail || cloudTeam.capemail || '',
+          group: cloudTeam.group || 'Group A',
+          slot: parseInt(cloudTeam.slot) || 1,
+          status: cloudTeam.status || 'Approved',
+          qualificationStatus: cloudTeam.qualificationStatus || cloudTeam.qualificationstatus || 'Round 1 Competitor',
+          currentStage: cloudTeam.currentStage || cloudTeam.currentstage || 'round1',
+          players: typeof cloudTeam.players === 'string' ? JSON.parse(cloudTeam.players) : (cloudTeam.players || [])
+        }));
+
+        // Merge with existing state, prioritizing cloud records
+        cloudTeamsNormalized.forEach(ct => {
+          const idx = this.state.teams.findIndex(t => t.code === ct.code);
+          if (idx >= 0) {
+            this.state.teams[idx] = ct;
+          } else {
+            this.state.teams.unshift(ct);
           }
         });
-        if (hasNew) {
-          this.save();
-          window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
-        }
+
+        this.save();
+        window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
       }
     } catch (e) {
       console.warn('Supabase fetch error:', e);
