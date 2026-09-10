@@ -252,12 +252,28 @@ class DataStore {
         console.warn('Teams fetch warning:', teamsErr.message);
       }
 
-      // 2. Fetch Broadcasts (Room ID & Passwords)
+      // 2. Fetch Broadcasts (Room ID & Passwords + Failover Settings)
       const { data: bcData, error: bcErr } = await supabaseClient.from('broadcasts').select('*');
       if (!bcErr && Array.isArray(bcData)) {
+        // Check for Failover System Settings Row in broadcasts table
+        const sysRow = bcData.find(b => b.id === 'SYS_SETTINGS');
+        if (sysRow) {
+          const rawJson = sysRow.roomId || sysRow.roomid;
+          if (rawJson) {
+            try {
+              const cloudParsed = JSON.parse(rawJson);
+              this.state.settings = Object.assign({}, DEFAULT_SETTINGS, cloudParsed);
+              if (cloudParsed.adminPinHash) this.state.adminPinHash = cloudParsed.adminPinHash;
+              if (cloudParsed.activeStageId) this.state.activeStageId = cloudParsed.activeStageId;
+            } catch (e) {
+              console.warn('Failover settings parse warning:', e);
+            }
+          }
+        }
+
         const deletedBcIds = this.state.deletedBroadcastIds || [];
         const validBc = bcData.filter(b => {
-          if (!b.id) return false;
+          if (!b.id || b.id === 'SYS_SETTINGS') return false;
           if (deletedBcIds.includes(b.id)) return false;
           const roomid = (b.roomId || b.roomid || '').toString();
           const roompass = (b.roomPass || b.roompass || '').toString();
@@ -381,6 +397,15 @@ class DataStore {
 
     if (supabaseClient) {
       try {
+        const settingsJson = JSON.stringify(this.state.settings);
+
+        // Failover Channel 1: Store in broadcasts table (Guaranteed table on Supabase)
+        const sysBcLower = { id: 'SYS_SETTINGS', group: 'SYS_SETTINGS', stage: 'SYS_SETTINGS', roomid: settingsJson, roompass: 'SYS_SETTINGS', islive: false };
+        const sysBcCamel = { id: 'SYS_SETTINGS', group: 'SYS_SETTINGS', stage: 'SYS_SETTINGS', roomId: settingsJson, roomPass: 'SYS_SETTINGS', isLive: false };
+        let bcRes = await supabaseClient.from('broadcasts').upsert([sysBcLower], { onConflict: 'id' });
+        if (bcRes.error) await supabaseClient.from('broadcasts').upsert([sysBcCamel], { onConflict: 'id' });
+
+        // Failover Channel 2: Store in settings table
         const pLower = {
           id: 'main_settings',
           tournamenttitle: this.state.settings.tournamentTitle || 'REX ESPORTS BGMI CHAMPIONSHIP',
@@ -409,7 +434,7 @@ class DataStore {
         if (res.error) res = await supabaseClient.from('settings').insert([pLower]);
         if (res.error) res = await supabaseClient.from('settings').upsert([pCamel], { onConflict: 'id' });
         if (res.error) res = await supabaseClient.from('settings').insert([pCamel]);
-        if (!res.error) console.log('⚡ Settings synced to Supabase Cloud!');
+        console.log('⚡ Settings synced live to Supabase Cloud!');
       } catch (e) {
         console.warn('Settings cloud sync warning:', e);
       }
