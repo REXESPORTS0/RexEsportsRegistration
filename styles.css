@@ -318,16 +318,17 @@ body.light-blue-theme {
 
 /* Minimalist Card Design */
 .card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 18px;
   padding: 1.75rem;
-  box-shadow: var(--shadow-md);
-  transition: var(--transition);
+  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.05), 0 4px 12px -2px rgba(0, 82, 255, 0.03);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .card:hover {
   border-color: rgba(0, 82, 255, 0.3);
+  box-shadow: 0 14px 35px -5px rgba(0, 82, 255, 0.08), 0 6px 15px -2px rgba(15, 23, 42, 0.04);
 }
 
 .card-header {
@@ -537,11 +538,18 @@ body.light-blue-theme {
 .grid-4col { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; }
 
 .feature-card {
-  background: white;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 1.5rem;
-  box-shadow: var(--shadow-sm);
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 18px;
+  padding: 1.6rem;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.04);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.feature-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 35px -5px rgba(0, 82, 255, 0.08);
+  border-color: rgba(0, 82, 255, 0.25);
 }
 
 .feature-icon {
@@ -682,13 +690,18 @@ body.light-blue-theme {
 }
 
 .point-badge-bar {
-  background: var(--primary-blue-light);
+  background: linear-gradient(135deg, rgba(0, 82, 255, 0.08) 0%, rgba(0, 242, 254, 0.05) 100%);
+  border: 1px solid rgba(0, 82, 255, 0.2);
   border-left: 4px solid var(--primary-blue);
-  padding: 0.6rem 1rem;
+  border-radius: 12px;
+  padding: 0.75rem 1.1rem;
   font-family: var(--font-heading);
   font-weight: 700;
   color: var(--primary-blue);
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 /* FORMS */
@@ -733,20 +746,23 @@ body.light-blue-theme {
 .required { color: var(--accent-red); }
 
 .form-input, .form-select {
-  background: white;
-  border: 1px solid var(--border-color);
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
   color: var(--text-main);
   font-family: var(--font-body);
   font-size: 0.95rem;
+  font-weight: 500;
   padding: 0.75rem 1rem;
-  border-radius: var(--radius-sm);
-  transition: var(--transition);
+  border-radius: 12px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .form-input:focus, .form-select:focus {
   outline: none;
+  background: #ffffff;
   border-color: var(--primary-blue);
-  box-shadow: 0 0 0 3px var(--primary-blue-light);
+  box-shadow: 0 0 0 4px rgba(0, 82, 255, 0.12), inset 0 1px 2px rgba(0, 0, 0, 0.01);
 }
 
 .avatar-picker {
@@ -1148,15 +1164,38 @@ body.light-blue-theme {
   }
 
   /* Table responsiveness & smooth swipe */
+  /* Table Responsiveness & Mobile Touch Scroll Indicator */
   .table-responsive {
-    display: block;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
     touch-action: pan-x !important;
-    border-radius: var(--radius-sm);
-    margin-bottom: 1rem;
-    max-width: 100%;
+    border-radius: 12px !important;
+    margin-bottom: 0.75rem !important;
   }
+
+  .table-responsive::after {
+    content: "👉 SWIPE LEFT/RIGHT FOR FULL LEADERBOARD & POINTS";
+    display: block;
+    text-align: right;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--primary-blue);
+    padding: 0.4rem 0.5rem 0.2rem 0;
+    letter-spacing: 0.5px;
+    opacity: 0.85;
+  }
+
+  .styled-table {
+    min-width: 580px !important;
+  }
+
+  .styled-table.compact {
+    min-width: 100% !important;
+  }
+
   .styled-table th, .styled-table td {
     padding: 0.65rem 0.75rem;
     font-size: 0.82rem;
