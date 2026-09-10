@@ -364,7 +364,8 @@ class DataStore {
             id: r.id,
             name: r.name,
             autoQualifyTopN: parseInt(r.autoQualifyTopN || r.autoqualifytopn) || 4,
-            lobbyCapacity: parseInt(r.lobbyCapacity || r.lobbycapacity) || 16
+            lobbyCapacity: parseInt(r.lobbyCapacity || r.lobbycapacity) || 16,
+            matchCount: parseInt(r.matchCount || r.matchcount) || 1
           }));
         } else if (deletedRndIds.length > 0) {
           this.state.rounds = (this.state.rounds || []).filter(r => !deletedRndIds.includes(r.id));
@@ -557,7 +558,9 @@ class DataStore {
             autoQualifyTopN: rnd.autoQualifyTopN,
             autoqualifytopn: rnd.autoQualifyTopN,
             lobbyCapacity: rnd.lobbyCapacity,
-            lobbycapacity: rnd.lobbyCapacity
+            lobbycapacity: rnd.lobbyCapacity,
+            matchCount: rnd.matchCount || 1,
+            matchcount: rnd.matchCount || 1
           }], { onConflict: 'id' });
         }
       }
@@ -567,9 +570,9 @@ class DataStore {
     }
   }
 
-  addRound(name, autoQualifyTopN = 4, lobbyCapacity = 16) {
+  addRound(name, autoQualifyTopN = 4, lobbyCapacity = 16, matchCount = 1) {
     const id = `rnd_${Date.now()}`;
-    const roundObj = { id, name, autoQualifyTopN, lobbyCapacity };
+    const roundObj = { id, name, autoQualifyTopN, lobbyCapacity, matchCount: parseInt(matchCount) || 1 };
     this.state.rounds.push(roundObj);
     this.syncRoundsToSupabase();
     return id;
@@ -624,6 +627,7 @@ class DataStore {
     newTeam.status = newTeam.status || 'Approved';
     newTeam.currentStage = 'round1';
     newTeam.qualificationStatus = 'Round 1 Competitor';
+    newTeam.qualifiedRounds = ['round1'];
 
     const cap = this.getActiveLobbyCapacity();
     if (!newTeam.group) {
@@ -665,12 +669,26 @@ class DataStore {
     const team = this.state.teams.find(t => t.code === code);
     if (team) {
       team.qualificationStatus = qualificationStatus;
-      if (targetStage) {
-        team.currentStage = targetStage;
-      } else if (qualificationStatus.toLowerCase().includes('round 2')) {
-        team.currentStage = 'round2';
-      } else if (qualificationStatus.toLowerCase().includes('final')) {
-        team.currentStage = 'finals';
+      if (!Array.isArray(team.qualifiedRounds)) {
+        team.qualifiedRounds = ['round1'];
+      }
+      if (!team.qualifiedRounds.includes('round1')) {
+        team.qualifiedRounds.unshift('round1');
+      }
+
+      let stageToAppend = targetStage;
+      if (!stageToAppend) {
+        if (qualificationStatus.toLowerCase().includes('round 2')) stageToAppend = 'round2';
+        else if (qualificationStatus.toLowerCase().includes('quarter')) stageToAppend = 'rnd_quarter';
+        else if (qualificationStatus.toLowerCase().includes('semi')) stageToAppend = 'rnd_semi';
+        else if (qualificationStatus.toLowerCase().includes('final')) stageToAppend = 'finals';
+      }
+
+      if (stageToAppend && !qualificationStatus.toLowerCase().includes('eliminated') && !qualificationStatus.toLowerCase().includes('disqualified')) {
+        team.currentStage = stageToAppend;
+        if (!team.qualifiedRounds.includes(stageToAppend)) {
+          team.qualifiedRounds.push(stageToAppend);
+        }
       }
       this.save();
       this.syncToSupabase(team);
@@ -733,11 +751,15 @@ class DataStore {
     if (rIdx <= 0 || roundId === 'round1') {
       return approved;
     } else {
-      const targetRoundName = rounds[rIdx].name.toLowerCase();
+      const roundObj = rounds[rIdx];
+      const targetRoundName = roundObj ? roundObj.name.toLowerCase() : roundId.toLowerCase();
+
       return approved.filter(t => {
+        const qRounds = Array.isArray(t.qualifiedRounds) ? t.qualifiedRounds : [];
+        if (qRounds.includes(roundId)) return true;
+        if (t.currentStage === roundId) return true;
         const qStatus = (t.qualificationStatus || '').toLowerCase();
-        const stage = (t.currentStage || '').toLowerCase();
-        return stage === roundId || qStatus.includes(targetRoundName) || qStatus.includes(roundId);
+        return qStatus.includes(targetRoundName) || qStatus.includes(roundId.toLowerCase());
       });
     }
   }
@@ -867,7 +889,7 @@ class DataStore {
     }
   }
 
-  getLeaderboard(stage = 'round1', groupFilter = 'all') {
+  getLeaderboard(stage = 'round1', groupFilter = 'all', matchFilter = 'all') {
     const teamsMap = {};
     let targetTeams = this.getTeamsForRound(stage);
 
@@ -891,9 +913,10 @@ class DataStore {
       };
     });
 
-    const relevant = this.state.matchScores.filter(m => m.stage === stage);
+    const relevant = (this.state.matchScores || []).filter(m => m.stage === stage);
     relevant.forEach(match => {
-      if (groupFilter === 'all' || match.group === groupFilter) {
+      if ((groupFilter === 'all' || match.group === groupFilter) &&
+          (matchFilter === 'all' || match.matchNum === matchFilter)) {
         match.scores.forEach(s => {
           if (teamsMap[s.teamCode]) {
             const tm = teamsMap[s.teamCode];
@@ -910,6 +933,29 @@ class DataStore {
     });
 
     return Object.values(teamsMap).sort((a, b) => b.totalPts - a.totalPts || b.wwcdCount - a.wwcdCount || b.killPts - a.killPts);
+  }
+
+  getMatchesForStageAndGroup(stageId, groupName = 'all') {
+    return (this.state.matchScores || []).filter(m => 
+      m.stage === stageId && (groupName === 'all' || m.group === groupName)
+    );
+  }
+
+  async deleteMatchScore(stage, group, matchNum) {
+    this.state.matchScores = (this.state.matchScores || []).filter(m => 
+      !(m.stage === stage && m.group === group && m.matchNum === matchNum)
+    );
+    this.save();
+    window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
+
+    if (supabaseClient) {
+      try {
+        const scoreId = `MS-${stage}-${group}-${matchNum}`.replace(/\s+/g, '_');
+        await supabaseClient.from('match_scores').delete().eq('id', scoreId);
+      } catch (e) {
+        console.warn('Match score delete error:', e);
+      }
+    }
   }
 
   autoQualifyRoundTeams(sourceStageId, targetQualifyText = 'Qualified for Round 2', targetStageId = 'round2', topNPerGroup = 4) {

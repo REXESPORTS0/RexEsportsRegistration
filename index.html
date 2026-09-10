@@ -468,6 +468,18 @@
               <option value="Group D">GROUP D</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>Select Match:</label>
+            <select id="standingsMatchSelect" class="form-select">
+              <option value="all">OVERALL ALL MATCHES</option>
+              <option value="Match 1">MATCH 1</option>
+              <option value="Match 2">MATCH 2</option>
+              <option value="Match 3">MATCH 3</option>
+              <option value="Match 4">MATCH 4</option>
+              <option value="Match 5">MATCH 5</option>
+              <option value="Match 6">MATCH 6</option>
+            </select>
+          </div>
           <div class="form-group flex-1">
             <label>Search Team:</label>
             <input type="text" id="standingsSearchInput" class="form-input" placeholder="Search team...">
@@ -994,6 +1006,16 @@
               </div>
             </div>
           </div>
+
+          <!-- RECORDED MATCHES LIST FOR THIS STAGE & GROUP -->
+          <div class="card mt-4" style="border-top: 3px solid var(--primary-blue);">
+            <div class="card-header">
+              <h4><i data-lucide="list"></i> RECORDED MATCHES & SCORE EDITOR</h4>
+            </div>
+            <div class="card-body">
+              <div id="adminRecordedMatchesList"></div>
+            </div>
+          </div>
         </div>
 
         <!-- SUBTAB 8: WEBSITE CONTENT, TOURNAMENT RULES & SECURITY PIN -->
@@ -1153,7 +1175,7 @@
 
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="data.js?v=55.0"></script>
-  <script src="app.js?v=55.0"></script>
+  <script src="data.js?v=56.0"></script>
+  <script src="app.js?v=56.0"></script>
 </body>
 </html>

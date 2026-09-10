@@ -201,6 +201,24 @@ function updateHeroMetrics() {
   }
 }
 
+function updateScoreMatchOptions() {
+  const stageSelect = document.getElementById('scoreStageSelect');
+  const matchSelect = document.getElementById('scoreMatchNumSelect');
+  if (!stageSelect || !matchSelect) return;
+
+  const stageId = stageSelect.value || 'round1';
+  const roundObj = window.store ? window.store.getRoundById(stageId) : null;
+  const count = roundObj && roundObj.matchCount ? parseInt(roundObj.matchCount) : 6;
+
+  const currentVal = matchSelect.value;
+  let options = '';
+  for (let i = 1; i <= Math.max(count, 6); i++) {
+    const val = `Match ${i}`;
+    options += `<option value="${val}" ${currentVal === val ? 'selected' : ''}>${val}</option>`;
+  }
+  matchSelect.innerHTML = options;
+}
+
 function populateDynamicRoundDropdowns() {
   const rounds = window.store ? window.store.getRounds() : [];
   const ids = ['standingsStageSelect', 'schStage', 'bcStage', 'scoreStageSelect'];
@@ -237,6 +255,26 @@ function populateDynamicRoundDropdowns() {
       if (currentVal && (currentVal === 'all' || allGroups.includes(currentVal))) el.value = currentVal;
     }
   });
+
+  updateScoreMatchOptions();
+
+  const scoreStageEl = document.getElementById('scoreStageSelect');
+  if (scoreStageEl) {
+    scoreStageEl.onchange = () => {
+      updateScoreMatchOptions();
+      renderAdminScoreEntryTable();
+    };
+  }
+
+  const scoreGroupEl = document.getElementById('scoreGroupSelect');
+  if (scoreGroupEl) {
+    scoreGroupEl.onchange = renderAdminScoreEntryTable;
+  }
+
+  const scoreMatchEl = document.getElementById('scoreMatchNumSelect');
+  if (scoreMatchEl) {
+    scoreMatchEl.onchange = renderAdminScoreEntryTable;
+  }
 }
 
 function renderPublicRoundsFlow() {
@@ -682,6 +720,7 @@ function renderSlotsForGroup(groupName) {
 function renderPublicStandings() {
   const stageSelect = document.getElementById('standingsStageSelect');
   const groupSelect = document.getElementById('standingsGroupSelect');
+  const matchSelect = document.getElementById('standingsMatchSelect');
   const searchInput = document.getElementById('standingsSearchInput');
   const tbody = document.getElementById('publicLeaderboardBody');
 
@@ -689,12 +728,24 @@ function renderPublicStandings() {
 
   const stage = stageSelect ? stageSelect.value : 'round1';
   const group = groupSelect ? groupSelect.value : 'all';
+  const match = matchSelect ? matchSelect.value : 'all';
   const searchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
 
-  let leaderboard = window.store ? window.store.getLeaderboard(stage, group) : [];
+  let leaderboard = window.store ? window.store.getLeaderboard(stage, group, match) : [];
 
   if (searchQuery) {
     leaderboard = leaderboard.filter(t => t.teamName.toLowerCase().includes(searchQuery));
+  }
+
+  if (leaderboard.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" class="text-center" style="padding:2rem; color:var(--text-muted);">
+          No match records or teams found for the selected filter.
+        </td>
+      </tr>
+    `;
+    return;
   }
 
   tbody.innerHTML = leaderboard.map((t, idx) => `
@@ -712,6 +763,7 @@ function renderPublicStandings() {
 
   if (stageSelect) stageSelect.onchange = renderPublicStandings;
   if (groupSelect) groupSelect.onchange = renderPublicStandings;
+  if (matchSelect) matchSelect.onchange = renderPublicStandings;
   if (searchInput) searchInput.oninput = renderPublicStandings;
 }
 
@@ -1393,21 +1445,123 @@ window.deleteBroadcastFromAdmin = async function(id) {
 };
 
 function renderAdminScoreEntryTable() {
+  const stage = document.getElementById('scoreStageSelect')?.value || 'round1';
   const group = document.getElementById('scoreGroupSelect')?.value || 'Group A';
+  const matchNum = document.getElementById('scoreMatchNumSelect')?.value || 'Match 1';
   const tbody = document.getElementById('adminScoreEntryBody');
   if (!tbody) return;
 
-  const groupTeams = window.store.getTeams().filter(t => t.group === group && t.status === 'Approved');
+  const groupTeams = window.store ? window.store.getTeamsForRound(stage).filter(t => t.group === group && t.status === 'Approved') : [];
+  const existingMatches = window.store ? window.store.getMatchesForStageAndGroup(stage, group) : [];
+  const currentMatchScoreObj = existingMatches.find(m => m.matchNum === matchNum);
 
-  tbody.innerHTML = groupTeams.map((t, idx) => `
-    <tr data-code="${t.code}">
-      <td><strong>Slot #${t.slot}</strong></td>
-      <td><strong>${t.logo || '🦖'} ${t.teamName}</strong></td>
-      <td><input type="number" class="form-input rank-input" value="${idx + 1}" min="1" max="20" style="width:80px;"></td>
-      <td><input type="number" class="form-input kills-input" value="0" min="0" max="50" style="width:80px;"></td>
-    </tr>
-  `).join('');
+  const existingScoresMap = {};
+  if (currentMatchScoreObj && Array.isArray(currentMatchScoreObj.scores)) {
+    currentMatchScoreObj.scores.forEach(s => {
+      existingScoresMap[s.teamCode] = s;
+    });
+  }
+
+  if (groupTeams.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="text-center" style="padding:2rem; color:var(--text-muted);">
+          No approved teams assigned to <strong>${group}</strong> in this stage yet.
+        </td>
+      </tr>
+    `;
+    renderAdminRecordedMatchesList();
+    return;
+  }
+
+  tbody.innerHTML = groupTeams.map((t, idx) => {
+    const existing = existingScoresMap[t.code];
+    const defaultRank = existing ? existing.rank : (idx + 1);
+    const defaultKills = existing ? existing.kills : 0;
+
+    return `
+      <tr data-code="${t.code}">
+        <td><strong>Slot #${t.slot}</strong></td>
+        <td><strong>${t.logo || '🦖'} ${t.teamName}</strong></td>
+        <td><input type="number" class="form-input rank-input" value="${defaultRank}" min="1" max="50" style="width:90px;"></td>
+        <td><input type="number" class="form-input kills-input" value="${defaultKills}" min="0" max="100" style="width:90px;"></td>
+      </tr>
+    `;
+  }).join('');
+
+  renderAdminRecordedMatchesList();
 }
+
+function renderAdminRecordedMatchesList() {
+  const stage = document.getElementById('scoreStageSelect')?.value || 'round1';
+  const group = document.getElementById('scoreGroupSelect')?.value || 'Group A';
+  const container = document.getElementById('adminRecordedMatchesList');
+  if (!container) return;
+
+  const matches = window.store ? window.store.getMatchesForStageAndGroup(stage, group) : [];
+
+  if (matches.length === 0) {
+    container.innerHTML = `<p class="text-muted" style="font-size:0.9rem;">No matches recorded yet for ${group} in this stage. Enter scores above and click Save!</p>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="table-responsive">
+      <table class="styled-table">
+        <thead>
+          <tr>
+            <th>MATCH #</th>
+            <th>TEAMS RECORDED</th>
+            <th>WINNER (WWCD)</th>
+            <th>ACTIONS</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${matches.map(m => {
+            const winnerScore = m.scores.find(s => parseInt(s.rank) === 1);
+            return `
+              <tr>
+                <td><strong style="color:var(--primary-blue);">${m.matchNum}</strong></td>
+                <td>${m.scores.length} Teams</td>
+                <td><strong style="color:var(--accent-gold);">${winnerScore ? `🏆 ${winnerScore.teamName}` : 'N/A'}</strong></td>
+                <td>
+                  <button class="btn btn-secondary btn-sm" onclick="window.editRecordedMatch('${m.matchNum}')" style="margin-right:6px;">
+                    <i data-lucide="edit-2"></i> Edit
+                  </button>
+                  <button class="btn btn-danger btn-sm" onclick="window.deleteRecordedMatch('${m.matchNum}')">
+                    <i data-lucide="trash-2"></i> Delete
+                  </button>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  if (window.lucide) lucide.createIcons();
+}
+
+window.editRecordedMatch = function(matchNum) {
+  const matchSelect = document.getElementById('scoreMatchNumSelect');
+  if (matchSelect) {
+    matchSelect.value = matchNum;
+    renderAdminScoreEntryTable();
+    showToast(`Loaded ${matchNum} for editing above.`, 'info');
+  }
+};
+
+window.deleteRecordedMatch = async function(matchNum) {
+  const stage = document.getElementById('scoreStageSelect')?.value;
+  const group = document.getElementById('scoreGroupSelect')?.value;
+  if (confirm(`Are you sure you want to delete ${matchNum} scores for ${group}?`)) {
+    if (window.store) await window.store.deleteMatchScore(stage, group, matchNum);
+    showToast(`${matchNum} scores deleted!`, 'info');
+    renderAdminScoreEntryTable();
+    renderPublicStandings();
+  }
+};
 
 function saveMatchScoresFromTable() {
   const stage = document.getElementById('scoreStageSelect').value;
@@ -1419,15 +1573,18 @@ function saveMatchScoresFromTable() {
   rows.forEach(row => {
     const code = row.getAttribute('data-code');
     const team = window.store.getTeamByCodeOrPhone(code);
-    const rank = parseInt(row.querySelector('.rank-input').value) || 20;
-    const kills = parseInt(row.querySelector('.kills-input').value) || 0;
+    const rankInput = row.querySelector('.rank-input');
+    const killsInput = row.querySelector('.kills-input');
 
-    if (team) {
+    if (team && rankInput && killsInput) {
+      const rank = parseInt(rankInput.value) || 20;
+      const kills = parseInt(killsInput.value) || 0;
       scores.push({ teamCode: code, teamName: team.teamName, rank, kills });
     }
   });
 
   window.store.saveMatchScore({ stage, group, matchNum, scores });
-  showToast(`Match scores saved for ${group}!`, 'success');
+  showToast(`Match scores saved for ${group} (${matchNum})!`, 'success');
+  renderAdminRecordedMatchesList();
   renderPublicStandings();
 }
