@@ -196,8 +196,17 @@ class DataStore {
       // 1. Fetch Teams
       const { data: teamsData, error: teamsErr } = await supabaseClient.from('teams').select('*');
       if (!teamsErr && Array.isArray(teamsData)) {
-        const deletedCodes = (this.state.deletedTeamCodes || []).map(c => c.toUpperCase());
-        const validCloudTeams = teamsData.filter(t => t.code && !deletedCodes.includes(t.code.toUpperCase()));
+        const deletedCodes = (this.state.deletedTeamCodes || []).map(c => c.trim().toUpperCase());
+        const validCloudTeams = teamsData.filter(t => {
+          if (!t.code) return false;
+          const codeUpper = t.code.trim().toUpperCase();
+          const statusLower = (t.status || '').toString().toLowerCase();
+          const qualLower = (t.qualificationStatus || t.qualificationstatus || '').toString().toLowerCase();
+
+          if (statusLower === 'deleted' || qualLower === 'deleted') return false;
+          if (deletedCodes.includes(codeUpper)) return false;
+          return true;
+        });
 
         this.state.teams = validCloudTeams.map(cloudTeam => ({
           code: cloudTeam.code,
@@ -222,7 +231,15 @@ class DataStore {
       const { data: bcData, error: bcErr } = await supabaseClient.from('broadcasts').select('*');
       if (!bcErr && Array.isArray(bcData)) {
         const deletedBcIds = this.state.deletedBroadcastIds || [];
-        const validBc = bcData.filter(b => b.id && !deletedBcIds.includes(b.id));
+        const validBc = bcData.filter(b => {
+          if (!b.id) return false;
+          if (deletedBcIds.includes(b.id)) return false;
+          const roomid = (b.roomId || b.roomid || '').toString();
+          const roompass = (b.roomPass || b.roompass || '').toString();
+          const isLive = b.isLive !== false && b.islive !== false;
+          if (!isLive && !roomid && !roompass) return false;
+          return true;
+        });
 
         this.state.broadcasts = validBc.map(bc => ({
           id: bc.id,
@@ -232,7 +249,7 @@ class DataStore {
           roomPass: bc.roomPass || bc.roompass || '',
           matchTime: bc.matchTime || bc.matchtime || '',
           map: bc.map || 'Erangel',
-          isLive: bc.isLive !== false
+          isLive: bc.isLive !== false && bc.islive !== false
         }));
       }
 
@@ -240,7 +257,13 @@ class DataStore {
       const { data: schData, error: schErr } = await supabaseClient.from('schedules').select('*');
       if (!schErr && Array.isArray(schData)) {
         const deletedSchIds = this.state.deletedScheduleIds || [];
-        const validSch = schData.filter(s => s.id && !deletedSchIds.includes(s.id));
+        const validSch = schData.filter(s => {
+          if (!s.id) return false;
+          if (deletedSchIds.includes(s.id)) return false;
+          const mNum = (s.matchNum || s.matchnum || '').toString().toLowerCase();
+          if (mNum === 'deleted') return false;
+          return true;
+        });
 
         this.state.schedules = validSch.map(sch => ({
           id: sch.id,
@@ -269,7 +292,13 @@ class DataStore {
       const { data: rndData, error: rndErr } = await supabaseClient.from('rounds').select('*');
       if (!rndErr && Array.isArray(rndData)) {
         const deletedRndIds = this.state.deletedRoundIds || [];
-        const validRnd = rndData.filter(r => r.id && !deletedRndIds.includes(r.id));
+        const validRnd = rndData.filter(r => {
+          if (!r.id) return false;
+          if (deletedRndIds.includes(r.id)) return false;
+          const rName = (r.name || '').toString().toLowerCase();
+          if (rName === 'deleted') return false;
+          return true;
+        });
 
         if (validRnd.length > 0) {
           this.state.rounds = validRnd.map(r => ({
@@ -358,7 +387,7 @@ class DataStore {
     }
   }
 
-  deleteRound(id) {
+  async deleteRound(id) {
     if (!id) return;
     if (!this.state.deletedRoundIds) this.state.deletedRoundIds = [];
     if (!this.state.deletedRoundIds.includes(id)) this.state.deletedRoundIds.push(id);
@@ -368,10 +397,14 @@ class DataStore {
     window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
 
     if (supabaseClient) {
-      supabaseClient.from('rounds').delete().eq('id', id).then(({ error }) => {
-        if (!error) console.log('⚡ Round deleted from Supabase Cloud:', id);
-        else supabaseClient.from('rounds').delete().ilike('id', id);
-      }).catch(e => console.warn('Round delete cloud warning:', e));
+      try {
+        await supabaseClient.from('rounds').update({ name: 'Deleted' }).eq('id', id);
+        const { error } = await supabaseClient.from('rounds').delete().eq('id', id);
+        if (error) await supabaseClient.from('rounds').delete().ilike('id', id);
+        console.log('⚡ Round deleted from Supabase Cloud:', id);
+      } catch (e) {
+        console.warn('Round delete cloud warning:', e);
+      }
     }
   }
 
@@ -450,26 +483,35 @@ class DataStore {
     }
   }
 
-  deleteTeam(code) {
+  async deleteTeam(code) {
     if (!code) return;
-    if (!this.state.deletedTeamCodes) this.state.deletedTeamCodes = [];
-    if (!this.state.deletedTeamCodes.includes(code)) this.state.deletedTeamCodes.push(code);
+    const cleanCode = code.trim();
+    const upperCode = cleanCode.toUpperCase();
 
-    this.state.teams = this.state.teams.filter(t => t.code !== code);
+    if (!this.state.deletedTeamCodes) this.state.deletedTeamCodes = [];
+    if (!this.state.deletedTeamCodes.includes(upperCode)) this.state.deletedTeamCodes.push(upperCode);
+
+    this.state.teams = this.state.teams.filter(t => t.code.toUpperCase() !== upperCode);
     this.save();
     window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
 
     if (supabaseClient) {
-      const cleanCode = code.trim();
-      supabaseClient.from('teams').delete().eq('code', cleanCode).then(({ error }) => {
+      try {
+        // Step 1: Soft Delete in Supabase (Update status to Deleted so all devices ignore it instantly even if SQL delete fails)
+        await supabaseClient.from('teams').update({ status: 'Deleted', qualificationstatus: 'Deleted' }).eq('code', cleanCode);
+        await supabaseClient.from('teams').update({ status: 'Deleted', qualificationstatus: 'Deleted' }).ilike('code', cleanCode);
+
+        // Step 2: Hard Delete in Supabase
+        const { error } = await supabaseClient.from('teams').delete().eq('code', cleanCode);
         if (error) {
-          supabaseClient.from('teams').delete().eq('code', cleanCode.toLowerCase()).then(() => {
-            supabaseClient.from('teams').delete().eq('code', cleanCode.toUpperCase());
-          });
-        } else {
-          console.log('⚡ Team deleted from Supabase Cloud:', cleanCode);
+          await supabaseClient.from('teams').delete().ilike('code', cleanCode);
+          await supabaseClient.from('teams').delete().eq('code', cleanCode.toLowerCase());
+          await supabaseClient.from('teams').delete().eq('code', cleanCode.toUpperCase());
         }
-      }).catch(e => console.warn('Delete cloud error:', e));
+        console.log('⚡ Team deleted from Supabase Cloud:', cleanCode);
+      } catch (e) {
+        console.warn('Delete team cloud error:', e);
+      }
     }
   }
 
@@ -531,7 +573,7 @@ class DataStore {
     }
   }
 
-  deleteSchedule(id) {
+  async deleteSchedule(id) {
     if (!id) return;
     if (!this.state.deletedScheduleIds) this.state.deletedScheduleIds = [];
     if (!this.state.deletedScheduleIds.includes(id)) this.state.deletedScheduleIds.push(id);
@@ -541,10 +583,14 @@ class DataStore {
     window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
 
     if (supabaseClient) {
-      supabaseClient.from('schedules').delete().eq('id', id).then(({ error }) => {
-        if (!error) console.log('⚡ Schedule deleted from Supabase Cloud:', id);
-        else supabaseClient.from('schedules').delete().ilike('id', id);
-      }).catch(e => console.warn('Schedule delete cloud error:', e));
+      try {
+        await supabaseClient.from('schedules').update({ matchnum: 'Deleted', matchNum: 'Deleted' }).eq('id', id);
+        const { error } = await supabaseClient.from('schedules').delete().eq('id', id);
+        if (error) await supabaseClient.from('schedules').delete().ilike('id', id);
+        console.log('⚡ Schedule deleted from Supabase Cloud:', id);
+      } catch (e) {
+        console.warn('Schedule delete cloud error:', e);
+      }
     }
   }
 
@@ -576,7 +622,7 @@ class DataStore {
     }
   }
 
-  deleteBroadcast(id) {
+  async deleteBroadcast(id) {
     if (!id) return;
     if (!this.state.deletedBroadcastIds) this.state.deletedBroadcastIds = [];
     if (!this.state.deletedBroadcastIds.includes(id)) this.state.deletedBroadcastIds.push(id);
@@ -586,10 +632,14 @@ class DataStore {
     window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
 
     if (supabaseClient) {
-      supabaseClient.from('broadcasts').delete().eq('id', id).then(({ error }) => {
-        if (!error) console.log('⚡ Broadcast deleted from Supabase Cloud:', id);
-        else supabaseClient.from('broadcasts').delete().ilike('id', id);
-      }).catch(e => console.warn('Broadcast delete cloud error:', e));
+      try {
+        await supabaseClient.from('broadcasts').update({ islive: false, roomid: '', roompass: '' }).eq('id', id);
+        const { error } = await supabaseClient.from('broadcasts').delete().eq('id', id);
+        if (error) await supabaseClient.from('broadcasts').delete().ilike('id', id);
+        console.log('⚡ Broadcast deleted from Supabase Cloud:', id);
+      } catch (e) {
+        console.warn('Broadcast delete cloud error:', e);
+      }
     }
   }
 
