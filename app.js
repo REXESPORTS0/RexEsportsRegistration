@@ -497,8 +497,13 @@ function initQualifiedTeamsHub() {
   if (!stageTabsContainer) return;
 
   const rounds = window.store.getRounds();
+  let activeStageId = stageTabsContainer.querySelector('.stage-tab-btn.active')?.getAttribute('data-stage');
+  if (!activeStageId && rounds.length > 0) {
+    activeStageId = rounds[0].id;
+  }
+
   stageTabsContainer.innerHTML = rounds.map((r, idx) => `
-    <button class="stage-tab-btn ${idx === 1 ? 'active' : (idx === 0 && rounds.length === 1 ? 'active' : '')}" data-stage="${r.id}">
+    <button class="stage-tab-btn ${r.id === activeStageId ? 'active' : ''}" data-stage="${r.id}">
       <i data-lucide="${idx === rounds.length - 1 ? 'trophy' : 'award'}"></i> ${r.name.toUpperCase()}
     </button>
   `).join('');
@@ -516,10 +521,19 @@ function initQualifiedTeamsHub() {
 
 function renderQualifiedTeamsHub() {
   const tbody = document.getElementById('qualifiedTeamsTableBody');
-  const activeTab = document.querySelector('#qualifiedStageTabs .stage-tab-btn.active');
-  const targetStageId = activeTab ? activeTab.getAttribute('data-stage') : 'round2';
-
+  const stageTabsContainer = document.getElementById('qualifiedStageTabs');
   if (!tbody) return;
+
+  const rounds = window.store ? window.store.getRounds() : [];
+  let activeTab = stageTabsContainer ? stageTabsContainer.querySelector('.stage-tab-btn.active') : null;
+
+  if (!activeTab && stageTabsContainer && rounds.length > 0) {
+    initQualifiedTeamsHub();
+    activeTab = stageTabsContainer.querySelector('.stage-tab-btn.active');
+  }
+
+  const defaultStageId = rounds[0] ? rounds[0].id : 'round1';
+  const targetStageId = activeTab ? activeTab.getAttribute('data-stage') : defaultStageId;
 
   // CUMULATIVE MULTI-STAGE QUALIFIED LIST: Fetch teams qualified for this stage!
   const roundTeams = window.store ? window.store.getTeamsForRound(targetStageId) : [];
