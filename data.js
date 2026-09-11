@@ -738,31 +738,96 @@ class DataStore {
   updateTeamQualification(code, qualificationStatus, targetStage = null) {
     const team = this.state.teams.find(t => t.code === code);
     if (team) {
-      team.qualificationStatus = qualificationStatus;
+      const rounds = this.getRounds();
       if (!Array.isArray(team.qualifiedRounds)) {
         team.qualifiedRounds = ['round1'];
       }
-      if (!team.qualifiedRounds.includes('round1')) {
-        team.qualifiedRounds.unshift('round1');
+      if (!team.stageStatuses) team.stageStatuses = {};
+      team.stageStatuses['round1'] = team.stageStatuses['round1'] || 'Round 1 Competitor';
+
+      let stageToSet = targetStage;
+      if (!stageToSet) {
+        const matchedRnd = rounds.find(r => qualificationStatus.toLowerCase().includes(r.name.toLowerCase()) || qualificationStatus.toLowerCase().includes(r.id.toLowerCase()));
+        if (matchedRnd) stageToSet = matchedRnd.id;
+        else if (qualificationStatus.toLowerCase().includes('round 1')) stageToSet = 'round1';
+        else if (qualificationStatus.toLowerCase().includes('round 2')) stageToSet = 'round2';
+        else if (qualificationStatus.toLowerCase().includes('quarter')) stageToSet = 'rnd_quarter';
+        else if (qualificationStatus.toLowerCase().includes('semi')) stageToSet = 'rnd_semi';
+        else if (qualificationStatus.toLowerCase().includes('final')) stageToSet = 'finals';
       }
 
-      let stageToAppend = targetStage;
-      if (!stageToAppend) {
-        if (qualificationStatus.toLowerCase().includes('round 2')) stageToAppend = 'round2';
-        else if (qualificationStatus.toLowerCase().includes('quarter')) stageToAppend = 'rnd_quarter';
-        else if (qualificationStatus.toLowerCase().includes('semi')) stageToAppend = 'rnd_semi';
-        else if (qualificationStatus.toLowerCase().includes('final')) stageToAppend = 'finals';
+      if (!stageToSet && qualificationStatus.toLowerCase().includes('competitor')) {
+        stageToSet = 'round1';
       }
 
-      if (stageToAppend && !qualificationStatus.toLowerCase().includes('eliminated') && !qualificationStatus.toLowerCase().includes('disqualified')) {
-        team.currentStage = stageToAppend;
-        if (!team.qualifiedRounds.includes(stageToAppend)) {
-          team.qualifiedRounds.push(stageToAppend);
-        }
+      const targetIdx = rounds.findIndex(r => r.id === stageToSet);
+
+      if (targetIdx >= 0) {
+        // Forward promotion or demotion back to stage index targetIdx:
+        // All stages from index 0 up to targetIdx are kept in team.qualifiedRounds.
+        const validRoundIds = rounds.slice(0, targetIdx + 1).map(r => r.id);
+        team.qualifiedRounds = validRoundIds;
+
+        // Remove any higher stage IDs beyond targetIdx from stageStatuses
+        rounds.slice(targetIdx + 1).forEach(r => {
+          delete team.stageStatuses[r.id];
+        });
+
+        team.currentStage = stageToSet;
+        team.qualificationStatus = qualificationStatus;
+        team.stageStatuses[stageToSet] = qualificationStatus;
+      } else if (qualificationStatus.toLowerCase().includes('eliminated') || qualificationStatus.toLowerCase().includes('disqualified')) {
+        const currStage = targetStage || team.currentStage || 'round1';
+        const currIdx = rounds.findIndex(r => r.id === currStage);
+        const validIdx = currIdx >= 0 ? currIdx : 0;
+
+        team.qualifiedRounds = rounds.slice(0, validIdx + 1).map(r => r.id);
+        rounds.slice(validIdx + 1).forEach(r => {
+          delete team.stageStatuses[r.id];
+        });
+
+        team.qualificationStatus = qualificationStatus;
+        team.stageStatuses[currStage] = qualificationStatus;
+      } else {
+        team.qualificationStatus = qualificationStatus;
       }
+
       this.save();
       this.syncToSupabase(team);
     }
+  }
+
+  autoQualifyRoundTeams(sourceRoundId, targetStatus, targetStageId = null, topN = 4) {
+    const sourceTeams = this.getTeamsForRound(sourceRoundId);
+    if (sourceTeams.length === 0) return;
+
+    const leaderboard = typeof this.getLeaderboard === 'function' ? this.getLeaderboard(sourceRoundId, 'all', 'all') : [];
+    let qualifiedCodes = [];
+    if (leaderboard && leaderboard.length > 0) {
+      qualifiedCodes = leaderboard.slice(0, topN).map(t => t.code);
+    } else {
+      qualifiedCodes = sourceTeams.slice(0, topN).map(t => t.code);
+    }
+
+    const rounds = this.getRounds();
+    const sIdx = rounds.findIndex(r => r.id === sourceRoundId);
+    let resolvedStage = targetStageId;
+
+    if (sIdx >= 0 && sIdx + 1 < rounds.length) {
+      resolvedStage = rounds[sIdx + 1].id;
+    } else if (!resolvedStage) {
+      resolvedStage = sourceRoundId;
+    }
+
+    const targetRoundObj = this.getRoundById(resolvedStage);
+    const cleanStatus = (targetStatus && !targetStatus.includes(sourceRoundId)) ? targetStatus : (targetRoundObj ? `Qualified for ${targetRoundObj.name}` : 'Qualified Competitor');
+
+    qualifiedCodes.forEach(code => {
+      this.updateTeamQualification(code, cleanStatus, resolvedStage);
+    });
+
+    this.save();
+    window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
   }
 
   async deleteTeam(code) {
@@ -868,21 +933,22 @@ class DataStore {
     if (rIdx <= 0 || roundId === 'round1') {
       return approved;
     } else {
-      const roundObj = rounds[rIdx];
-      const targetRoundName = roundObj ? roundObj.name.toLowerCase() : roundId.toLowerCase();
-
       return approved.filter(t => {
-        const qRounds = Array.isArray(t.qualifiedRounds) ? t.qualifiedRounds : [];
-        if (qRounds.includes(roundId)) return true;
-        if (t.currentStage === roundId) return true;
-        const qStatus = (t.qualificationStatus || '').toLowerCase();
-        return qStatus.includes(targetRoundName) || qStatus.includes(roundId.toLowerCase());
+        const qRounds = Array.isArray(t.qualifiedRounds) ? t.qualifiedRounds : ['round1'];
+        return qRounds.includes(roundId);
       });
     }
   }
 
   getSchedules() { return this.state.schedules || []; }
   
+  getSchedulesForTeam(team) {
+    if (!team) return [];
+    const qualified = Array.isArray(team.qualifiedRounds) ? team.qualifiedRounds : ['round1'];
+    const teamStage = team.currentStage || 'round1';
+    return this.getSchedules().filter(s => s.group === team.group && (qualified.includes(s.stage) || s.stage === teamStage || s.stage === 'round1'));
+  }
+
   async addSchedule(sch) {
     sch.id = sch.id || `SCH-${Date.now()}`;
     this.state.schedules.unshift(sch);
@@ -928,12 +994,21 @@ class DataStore {
   }
 
   getBroadcasts() { return this.state.broadcasts || []; }
+  
   getBroadcastForGroup(groupName) { return this.getBroadcasts().find(b => b.group === groupName && b.isLive); }
 
+  getBroadcastsForTeam(team) {
+    if (!team) return [];
+    const qualified = Array.isArray(team.qualifiedRounds) ? team.qualifiedRounds : ['round1'];
+    const teamStage = team.currentStage || 'round1';
+    return this.getBroadcasts().filter(b => b.group === team.group && b.isLive && (qualified.includes(b.stage) || b.stage === teamStage || b.stage === 'round1'));
+  }
+
   async saveBroadcast(bc) {
-    const idx = this.state.broadcasts.findIndex(b => b.group === bc.group && b.stage === bc.stage);
-    if (idx >= 0) this.state.broadcasts[idx] = bc;
-    else { bc.id = `BC-${Date.now()}`; this.state.broadcasts.unshift(bc); }
+    bc.id = bc.id || `BC-${Date.now()}`;
+    // Overwrite / Delete older broadcasts matching the same Group & Stage
+    this.state.broadcasts = (this.state.broadcasts || []).filter(b => !(b.group === bc.group && b.stage === bc.stage));
+    this.state.broadcasts.unshift(bc);
     this.save();
 
     if (supabaseClient) {

@@ -242,6 +242,15 @@ function populateDynamicRoundDropdowns() {
     if (currentVal && rounds.some(r => r.id === currentVal)) stageSelect.value = currentVal;
   }
 
+  const targetQualSelect = document.getElementById('admQualifyTargetStatusSelect');
+  if (targetQualSelect) {
+    const currentVal = targetQualSelect.value;
+    let opts = rounds.slice(1).map(r => `<option value="Qualified for ${r.name}">Qualified for ${r.name}</option>`).join('');
+    if (!opts && rounds.length > 0) opts = `<option value="Qualified for ${rounds[0].name}">Qualified for ${rounds[0].name}</option>`;
+    targetQualSelect.innerHTML = opts || `<option value="Qualified for Round 2">Qualified for Round 2</option>`;
+    if (currentVal && opts.includes(currentVal)) targetQualSelect.value = currentVal;
+  }
+
   // Populate Dynamic Groups in Dropdowns
   const allGroups = window.store ? window.store.getAllGroups() : ['Group A', 'Group B', 'Group C', 'Group D'];
   const grpIds = ['schGroup', 'bcGroup', 'trTargetGroup', 'scoreGroupSelect', 'standingsGroupSelect', 'confirmedGroupFilter'];
@@ -512,13 +521,11 @@ function renderQualifiedTeamsHub() {
 
   if (!tbody) return;
 
-  // STRICT FILTERING: Fetch ONLY teams qualified for this specific round!
-  const roundTeams = window.store.getTeamsForRound(targetStageId).filter(t => 
-    t.qualificationStatus && t.qualificationStatus.toLowerCase().includes('qualified')
-  );
+  // CUMULATIVE MULTI-STAGE QUALIFIED LIST: Fetch teams qualified for this stage!
+  const roundTeams = window.store ? window.store.getTeamsForRound(targetStageId) : [];
 
   if (roundTeams.length === 0) {
-    const roundObj = window.store.getRoundById(targetStageId);
+    const roundObj = window.store ? window.store.getRoundById(targetStageId) : null;
     const roundName = roundObj ? roundObj.name : 'this round';
 
     tbody.innerHTML = `
@@ -526,22 +533,27 @@ function renderQualifiedTeamsHub() {
         <td colspan="5" class="text-center" style="padding:2.5rem; color:var(--text-muted);">
           <div style="font-size:2rem; color:var(--accent-gold); margin-bottom:0.5rem;">🏆</div>
           <strong style="font-size:1.1rem; color:var(--bg-dark-accent);">No teams qualified for ${roundName} yet.</strong>
-          <p style="font-size:0.88rem; margin-top:0.2rem;">Matches are in progress! Once Round 1 finishes, qualified teams will appear here automatically.</p>
+          <p style="font-size:0.88rem; margin-top:0.2rem;">Matches are in progress! Once teams qualify, they will appear here automatically.</p>
         </td>
       </tr>
     `;
     return;
   }
 
-  tbody.innerHTML = roundTeams.map((t, idx) => `
-    <tr>
-      <td><span class="badge green">#${idx + 1} QUALIFIED</span></td>
-      <td><strong>${t.logo || '🦖'} ${t.teamName}</strong> <small>[${t.tag}]</small></td>
-      <td>${t.group}</td>
-      <td><strong>Slot #${t.slot}</strong></td>
-      <td><span class="badge green">${t.qualificationStatus}</span></td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = roundTeams.map((t, idx) => {
+    const sg = window.store ? window.store.getTeamStageGroupAndSlot(t, targetStageId) : { group: t.group, slot: t.slot };
+    const stageBadge = (t.stageStatuses && t.stageStatuses[targetStageId]) ? t.stageStatuses[targetStageId] : (t.qualificationStatus || 'Qualified Competitor');
+
+    return `
+      <tr>
+        <td><span class="badge green">#${idx + 1} QUALIFIED</span></td>
+        <td><strong>${t.logo || '🦖'} ${t.teamName}</strong> <small>[${t.tag}]</small></td>
+        <td>${sg.group}</td>
+        <td><strong>Slot #${sg.slot}</strong></td>
+        <td><span class="badge green">${stageBadge}</span></td>
+      </tr>
+    `;
+  }).join('');
 
   if (window.lucide) lucide.createIcons();
 }
@@ -574,8 +586,8 @@ function initPlayerMatchHub() {
       return;
     }
 
-    const broadcast = window.store.getBroadcastForGroup(team.group);
-    const schedules = window.store.getSchedules().filter(s => s.group === team.group);
+    const broadcasts = window.store ? window.store.getBroadcastsForTeam(team) : [];
+    const schedules = window.store ? window.store.getSchedulesForTeam(team) : [];
 
     container.innerHTML = `
       <div class="card">
@@ -612,11 +624,12 @@ function initPlayerMatchHub() {
           ${schedules.length > 0 ? `
             <table class="styled-table compact mt-2">
               <thead>
-                <tr><th>MATCH #</th><th>DATE & TIME</th><th>MAP</th></tr>
+                <tr><th>STAGE</th><th>MATCH #</th><th>DATE & TIME</th><th>MAP</th></tr>
               </thead>
               <tbody>
                 ${schedules.map(s => `
                   <tr>
+                    <td><span class="badge blue">${s.stage.toUpperCase()}</span></td>
                     <td><strong>${s.matchNum}</strong></td>
                     <td>${new Date(s.time).toLocaleString()}</td>
                     <td><span class="badge blue">${s.map}</span></td>
@@ -624,7 +637,7 @@ function initPlayerMatchHub() {
                 `).join('')}
               </tbody>
             </table>
-          ` : `<p class="text-muted mt-2">No match schedules published for ${team.group} yet.</p>`}
+          ` : `<p class="text-muted mt-2">No match schedules published for your group and qualified rounds yet.</p>`}
         </div>
 
         <div class="card mt-4" style="background:var(--primary-blue-light); border-color:rgba(0,82,255,0.3);">
@@ -632,27 +645,34 @@ function initPlayerMatchHub() {
             <h4 style="font-family:var(--font-heading); color:var(--primary-blue); display:flex; align-items:center; gap:0.5rem; margin:0;">
               <i data-lucide="key"></i> BGMI ROOM MATCH CREDENTIALS
             </h4>
-            <span class="badge ${broadcast ? 'green' : 'gray'}">${broadcast ? '🔓 LIVE' : '🔒 LOCKED'}</span>
+            <span class="badge ${broadcasts.length > 0 ? 'green' : 'gray'}">${broadcasts.length > 0 ? '🔓 LIVE' : '🔒 LOCKED'}</span>
           </div>
 
-          ${broadcast ? `
-            <div class="grid-2col mt-3">
-              <div class="card text-center">
-                <span class="stat-label">ROOM ID</span>
-                <span class="stat-value" style="font-size:2rem;">${broadcast.roomId}</span>
-                <button class="btn btn-secondary btn-sm mt-2" onclick="navigator.clipboard.writeText('${broadcast.roomId}'); showToast('Room ID Copied!', 'success');">
-                  <i data-lucide="copy"></i> COPY ROOM ID
-                </button>
-              </div>
-              <div class="card text-center">
-                <span class="stat-label">PASSWORD</span>
-                <span class="stat-value" style="font-size:2rem; color:var(--accent-red);">${broadcast.roomPass}</span>
-                <button class="btn btn-secondary btn-sm mt-2" onclick="navigator.clipboard.writeText('${broadcast.roomPass}'); showToast('Password Copied!', 'success');">
-                  <i data-lucide="copy"></i> COPY PASS
-                </button>
-              </div>
+          ${broadcasts.length > 0 ? `
+            <div style="display:flex; flex-direction:column; gap:1rem;" class="mt-3">
+              ${broadcasts.map(b => `
+                <div class="card text-center" style="background:#fff;">
+                  <div class="badge blue mb-2" style="font-weight:700;">${b.stage.toUpperCase()} - ${b.group}</div>
+                  <div class="grid-2col mt-1">
+                    <div>
+                      <span class="stat-label">ROOM ID</span>
+                      <span class="stat-value" style="font-size:1.8rem;">${b.roomId}</span>
+                      <button class="btn btn-secondary btn-sm mt-2" onclick="navigator.clipboard.writeText('${b.roomId}'); showToast('Room ID Copied!', 'success');">
+                        <i data-lucide="copy"></i> COPY ROOM ID
+                      </button>
+                    </div>
+                    <div>
+                      <span class="stat-label">PASSWORD</span>
+                      <span class="stat-value" style="font-size:1.8rem; color:var(--accent-red);">${b.roomPass}</span>
+                      <button class="btn btn-secondary btn-sm mt-2" onclick="navigator.clipboard.writeText('${b.roomPass}'); showToast('Password Copied!', 'success');">
+                        <i data-lucide="copy"></i> COPY PASS
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
             </div>
-          ` : `<p class="text-muted mt-2">Room credentials will unlock 15 minutes before your match start time.</p>`}
+          ` : `<p class="text-muted mt-2">Room credentials will unlock when published for your qualified stage.</p>`}
         </div>
 
         <div class="mt-4">
@@ -675,11 +695,39 @@ function initPlayerMatchHub() {
    PUBLIC GROUPS & DYNAMIC SLOT CAPACITY MATRIX
    ========================================================================== */
 function renderPublicGroups() {
+  const stageTabBar = document.getElementById('publicStageTabs');
   const groupsTabBar = document.getElementById('publicGroupTabs');
   const container = document.getElementById('publicSlotsContainer');
   if (!groupsTabBar || !container) return;
 
-  const groups = window.store ? window.store.getAllGroups() : ['Group A', 'Group B', 'Group C', 'Group D'];
+  const rounds = window.store ? window.store.getRounds() : [];
+  let activeStage = stageTabBar?.querySelector('.stage-tab-btn.active')?.getAttribute('data-stage') || (rounds[0] ? rounds[0].id : 'round1');
+
+  if (stageTabBar) {
+    stageTabBar.innerHTML = rounds.map(r => `
+      <button class="stage-tab-btn ${r.id === activeStage ? 'active' : ''}" data-stage="${r.id}">
+        <i data-lucide="layers"></i> ${r.name.toUpperCase()}
+      </button>
+    `).join('');
+
+    stageTabBar.querySelectorAll('.stage-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        stageTabBar.querySelectorAll('.stage-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeStage = btn.getAttribute('data-stage');
+        renderPublicGroupTabs(activeStage);
+      });
+    });
+  }
+
+  renderPublicGroupTabs(activeStage);
+}
+
+function renderPublicGroupTabs(stageId) {
+  const groupsTabBar = document.getElementById('publicGroupTabs');
+  if (!groupsTabBar) return;
+
+  const groups = window.store ? window.store.getAllGroupsForStage(stageId) : ['Group A', 'Group B', 'Group C', 'Group D'];
   let activeGroup = groupsTabBar.querySelector('.stage-tab-btn.active')?.getAttribute('data-group') || groups[0] || 'Group A';
 
   groupsTabBar.innerHTML = groups.map(g => `
@@ -690,22 +738,32 @@ function renderPublicGroups() {
     btn.addEventListener('click', () => {
       groupsTabBar.querySelectorAll('.stage-tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      renderSlotsForGroup(btn.getAttribute('data-group'));
+      renderSlotsForGroup(stageId, btn.getAttribute('data-group'));
     });
   });
 
-  renderSlotsForGroup(activeGroup);
+  renderSlotsForGroup(stageId, activeGroup);
 }
 
-function renderSlotsForGroup(groupName) {
+function renderSlotsForGroup(stageId, groupName) {
   const container = document.getElementById('publicSlotsContainer');
   if (!container) return;
-  const capacity = window.store ? window.store.getActiveLobbyCapacity() : 16;
-  const allTeams = (window.store ? window.store.getTeams() : []).filter(t => t.group === groupName && t.status === 'Approved');
+
+  const roundObj = window.store ? window.store.getRoundById(stageId) : null;
+  const capacity = roundObj ? (parseInt(roundObj.lobbyCapacity) || 16) : 16;
+  const stageTeams = window.store ? window.store.getTeamsForRound(stageId) : [];
+
+  const groupTeams = stageTeams.filter(t => {
+    const sg = window.store ? window.store.getTeamStageGroupAndSlot(t, stageId) : { group: t.group, slot: t.slot };
+    return sg.group === groupName;
+  });
 
   const slotsArray = Array.from({ length: capacity }, (_, i) => {
     const slotNum = i + 1;
-    const tm = allTeams.find(t => t.slot === slotNum);
+    const tm = groupTeams.find(t => {
+      const sg = window.store ? window.store.getTeamStageGroupAndSlot(t, stageId) : { group: t.group, slot: t.slot };
+      return sg.slot === slotNum;
+    });
     return { slotNum, tm };
   });
 
@@ -917,16 +975,24 @@ function initAdminPanel() {
     autoQualifyRoundBtn.addEventListener('click', () => {
       const activeRoundTab = document.querySelector('#admQualifyRoundSubtabs .stage-tab-btn.active');
       const sourceRoundId = activeRoundTab ? activeRoundTab.getAttribute('data-round') : 'round1';
-      const targetStatus = document.getElementById('admQualifyTargetStatusSelect').value;
       const rndObj = window.store.getRoundById(sourceRoundId);
       const topN = rndObj ? rndObj.autoQualifyTopN : 4;
 
-      let targetStageId = 'round2';
-      if (targetStatus.toLowerCase().includes('final')) targetStageId = 'finals';
+      const rounds = window.store.getRounds();
+      const sIdx = rounds.findIndex(r => r.id === sourceRoundId);
+      if (sIdx < 0 || sIdx + 1 >= rounds.length) {
+        showToast(`No subsequent round available after ${rndObj.name}!`, 'warning');
+        return;
+      }
+
+      const targetRoundObj = rounds[sIdx + 1];
+      const targetStageId = targetRoundObj.id;
+      const targetStatus = `Qualified for ${targetRoundObj.name}`;
 
       window.store.autoQualifyRoundTeams(sourceRoundId, targetStatus, targetStageId, topN);
-      showToast(`Auto-qualified Top ${topN} teams from ${rndObj.name} to ${targetStatus}!`, 'success');
+      showToast(`Auto-qualified Top ${topN} teams from ${rndObj.name} to ${targetRoundObj.name}!`, 'success');
       renderAdminQualifyTableForRound(sourceRoundId);
+      renderAdminQualifyTableForRound(targetStageId);
       renderQualifiedTeamsHub();
     });
   }
@@ -1088,8 +1154,8 @@ function renderAdminQualifyTableForRound(roundId) {
   const tbody = document.getElementById('adminQualifyTableBody');
   if (!tbody) return;
 
-  // STRICT ISOLATED FILTERING: Only fetch teams participating in this specific round!
   const roundTeams = window.store.getTeamsForRound(roundId);
+  const rounds = window.store ? window.store.getRounds() : [];
 
   if (roundTeams.length === 0) {
     const roundObj = window.store.getRoundById(roundId);
@@ -1106,38 +1172,42 @@ function renderAdminQualifyTableForRound(roundId) {
     return;
   }
 
-  tbody.innerHTML = roundTeams.map(t => `
-    <tr>
-      <td><strong style="color:var(--primary-blue); font-family:var(--font-heading);">${t.code}</strong></td>
-      <td><strong>${t.logo || '🦖'} ${t.teamName}</strong></td>
-      <td>${t.group}</td>
-      <td><strong>Slot #${t.slot}</strong></td>
-      <td><strong style="color:var(--primary-blue);">${t.qualificationStatus || 'Round 1 Competitor'}</strong></td>
-      <td>
-        <select class="form-select qualify-select" data-code="${t.code}">
-          <option value="Round 1 Competitor" ${t.qualificationStatus === 'Round 1 Competitor' ? 'selected' : ''}>Round 1 Competitor</option>
-          <option value="Qualified for Round 2" ${t.qualificationStatus === 'Qualified for Round 2' ? 'selected' : ''}>Qualified for Round 2 🏆</option>
-          <option value="Qualified for Quarter Finals" ${t.qualificationStatus === 'Qualified for Quarter Finals' ? 'selected' : ''}>Qualified for Quarter Finals ⚡</option>
-          <option value="Qualified for Semi Finals" ${t.qualificationStatus === 'Qualified for Semi Finals' ? 'selected' : ''}>Qualified for Semi Finals 🔥</option>
-          <option value="Qualified for Grand Finals" ${t.qualificationStatus === 'Qualified for Grand Finals' ? 'selected' : ''}>Qualified for Grand Finals 👑</option>
-          <option value="Eliminated in Round 1" ${t.qualificationStatus === 'Eliminated in Round 1' ? 'selected' : ''}>Eliminated in Round 1 ❌</option>
-          <option value="Disqualified" ${t.qualificationStatus === 'Disqualified' ? 'selected' : ''}>Disqualified 🚫</option>
-        </select>
-      </td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = roundTeams.map(t => {
+    const sg = window.store ? window.store.getTeamStageGroupAndSlot(t, roundId) : { group: t.group, slot: t.slot };
+    const currentStatus = (t.stageStatuses && t.stageStatuses[roundId]) ? t.stageStatuses[roundId] : (t.qualificationStatus || 'Round 1 Competitor');
+
+    return `
+      <tr>
+        <td><strong style="color:var(--primary-blue); font-family:var(--font-heading);">${t.code}</strong></td>
+        <td><strong>${t.logo || '🦖'} ${t.teamName}</strong></td>
+        <td>${sg.group}</td>
+        <td><strong>Slot #${sg.slot}</strong></td>
+        <td><strong style="color:var(--primary-blue);">${currentStatus}</strong></td>
+        <td>
+          <select class="form-select qualify-select" data-code="${t.code}">
+            <option value="Round 1 Competitor" data-stage="round1" ${currentStatus === 'Round 1 Competitor' ? 'selected' : ''}>Round 1 Competitor</option>
+            ${rounds.slice(1).map(r => `
+              <option value="Qualified for ${r.name}" data-stage="${r.id}" ${currentStatus === `Qualified for ${r.name}` ? 'selected' : ''}>Qualified for ${r.name} 🏆</option>
+            `).join('')}
+            <option value="Eliminated" data-stage="${roundId}" ${currentStatus.includes('Eliminated') ? 'selected' : ''}>Eliminated ❌</option>
+            <option value="Disqualified" data-stage="${roundId}" ${currentStatus.includes('Disqualified') ? 'selected' : ''}>Disqualified 🚫</option>
+          </select>
+        </td>
+      </tr>
+    `;
+  }).join('');
 
   tbody.querySelectorAll('.qualify-select').forEach(sel => {
     sel.addEventListener('change', (e) => {
       const code = e.target.getAttribute('data-code');
       const val = e.target.value;
-      let targetStage = 'round1';
-      if (val.toLowerCase().includes('round 2')) targetStage = 'round2';
-      if (val.toLowerCase().includes('final')) targetStage = 'finals';
+      const selectedOption = e.target.options[e.target.selectedIndex];
+      const targetStage = selectedOption ? selectedOption.getAttribute('data-stage') : roundId;
 
       window.store.updateTeamQualification(code, val, targetStage);
       showToast('Qualification status updated!', 'success');
       renderAdminQualifyTableForRound(roundId);
+      if (targetStage !== roundId) renderAdminQualifyTableForRound(targetStage);
       renderQualifiedTeamsHub();
     });
   });
@@ -1386,7 +1456,10 @@ function renderAdminRoundsTable() {
       <td><span class="badge blue">Top ${r.autoQualifyTopN} Advance</span></td>
       <td><strong>${r.lobbyCapacity} Slots</strong></td>
       <td>
-        <button class="btn btn-danger btn-sm" onclick="deleteRoundFromAdmin('${r.id}')">
+        <button class="btn btn-secondary btn-sm" onclick="window.editRoundFromAdmin('${r.id}')" style="margin-right:4px;">
+          <i data-lucide="edit-2"></i> Edit
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="window.deleteRoundFromAdmin('${r.id}')">
           <i data-lucide="trash-2"></i> Delete
         </button>
       </td>
@@ -1396,6 +1469,31 @@ function renderAdminRoundsTable() {
   if (window.lucide) lucide.createIcons();
 }
 
+window.editRoundFromAdmin = async function(id) {
+  const roundObj = window.store ? window.store.getRoundById(id) : null;
+  if (!roundObj) return;
+
+  const newName = prompt('Edit Round Name:', roundObj.name);
+  if (newName === null) return;
+  const newQualify = prompt('Auto-Qualify Top N Teams Per Group:', roundObj.autoQualifyTopN);
+  if (newQualify === null) return;
+  const newCapacity = prompt('Lobby Slot Capacity Limit:', roundObj.lobbyCapacity);
+  if (newCapacity === null) return;
+
+  window.store.updateRound(id, {
+    name: newName.trim() || roundObj.name,
+    autoQualifyTopN: parseInt(newQualify) || roundObj.autoQualifyTopN,
+    lobbyCapacity: parseInt(newCapacity) || roundObj.lobbyCapacity
+  });
+
+  renderAdminRoundsTable();
+  populateDynamicRoundDropdowns();
+  renderPublicRoundsFlow();
+  initAdminQualifyRoundSubtabs();
+  renderPublicGroups();
+  showToast(`Round "${newName.trim() || roundObj.name}" updated live!`, 'success');
+};
+
 window.deleteRoundFromAdmin = async function(id) {
   if (confirm('Delete this tournament round?')) {
     if (window.store) await window.store.deleteRound(id);
@@ -1403,6 +1501,7 @@ window.deleteRoundFromAdmin = async function(id) {
     populateDynamicRoundDropdowns();
     renderPublicRoundsFlow();
     initAdminQualifyRoundSubtabs();
+    renderPublicGroups();
     showToast('Round deleted permanently!', 'info');
   }
 };
