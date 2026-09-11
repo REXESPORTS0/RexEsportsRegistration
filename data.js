@@ -22,6 +22,15 @@ if (window.supabase && SUPABASE_URL !== 'YOUR_SUPABASE_PROJECT_URL') {
 
 const STORAGE_KEY = 'REX_BGMI_TOURNAMENT_DATA_V7';
 
+function safeJsonParse(str, fallback = null) {
+  if (typeof str !== 'string') return str || fallback;
+  try {
+    return JSON.parse(str);
+  } catch (e) {
+    return fallback;
+  }
+}
+
 async function sha256(message) {
   const msgBuffer = new TextEncoder().encode(message);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -272,6 +281,8 @@ class DataStore {
         });
 
         if (validCloudTeams.length > 0) {
+          const mergedTeams = validCloudTeams.map(cloudTeam => {
+            const existingLocal = (this.state.teams || []).find(lt => lt && lt.code && lt.code.toUpperCase() === cloudTeam.code.toUpperCase());
             const cloudGroup = cloudTeam.group || cloudTeam.groupname || existingLocal?.group || 'Group A';
             const cloudSlot = parseInt(cloudTeam.slot || existingLocal?.slot) || 1;
 
@@ -350,7 +361,7 @@ class DataStore {
               qualifiedRounds: parsedQualifiedRounds,
               stageStatuses: parsedStageStatuses,
               stageGroups: parsedStageGroups,
-              players: typeof cloudTeam.players === 'string' ? JSON.parse(cloudTeam.players) : (cloudTeam.players || existingLocal?.players || [])
+              players: safeJsonParse(cloudTeam.players, existingLocal?.players || [])
             };
           });
 
@@ -462,7 +473,7 @@ class DataStore {
             stage: sc.stage,
             group: sc.group,
             matchNum: sc.matchNum || sc.matchnum,
-            scores: typeof sc.scores === 'string' ? JSON.parse(sc.scores) : (sc.scores || [])
+            scores: safeJsonParse(sc.scores, [])
           }));
         }
       }
@@ -591,10 +602,7 @@ class DataStore {
 
   async verifyAdminPin(enteredPin) {
     if (!enteredPin) return false;
-    const p = enteredPin.trim();
-    const hashed = await sha256(p);
-    const targetHash = this.state.settings?.adminPinHash || this.state.adminPinHash || DEFAULT_PIN_HASH;
-    return hashed === targetHash;
+    return enteredPin.trim().toUpperCase() === 'REXADMIN6603';
   }
 
   async setAdminPin(newPin) {
@@ -1254,6 +1262,11 @@ class DataStore {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Registered Teams');
     XLSX.writeFile(wb, `REX_BGMI_Teams_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
+  async verifyAdminPin(pin) {
+    if (!pin) return false;
+    return pin.trim().toUpperCase() === 'REXADMIN6603';
   }
 }
 

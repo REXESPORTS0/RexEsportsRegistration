@@ -5,30 +5,34 @@
 document.addEventListener('DOMContentLoaded', () => {
   if (window.lucide) lucide.createIcons();
 
-  renderBrandLogo();
-  initNavigation();
-  initRegistrationForm();
-  initConfirmedTeamsGallery();
-  initQualifiedTeamsHub();
-  initPlayerMatchHub();
-  renderPublicGroups();
-  populateDynamicRoundDropdowns();
-  renderPublicStandings();
-  renderPublicRoundsFlow();
-  initAdminPanel();
-  initSecretAdminShortcut();
-  updateHeroMetrics();
+  const safeRun = (fn, name) => {
+    try { fn(); } catch (e) { console.warn(`Error in ${name}:`, e); }
+  };
+
+  safeRun(renderBrandLogo, 'renderBrandLogo');
+  safeRun(initNavigation, 'initNavigation');
+  safeRun(initRegistrationForm, 'initRegistrationForm');
+  safeRun(initConfirmedTeamsGallery, 'initConfirmedTeamsGallery');
+  safeRun(initQualifiedTeamsHub, 'initQualifiedTeamsHub');
+  safeRun(initPlayerMatchHub, 'initPlayerMatchHub');
+  safeRun(renderPublicGroups, 'renderPublicGroups');
+  safeRun(populateDynamicRoundDropdowns, 'populateDynamicRoundDropdowns');
+  safeRun(renderPublicStandings, 'renderPublicStandings');
+  safeRun(renderPublicRoundsFlow, 'renderPublicRoundsFlow');
+  safeRun(initAdminPanel, 'initAdminPanel');
+  safeRun(initSecretAdminShortcut, 'initSecretAdminShortcut');
+  safeRun(updateHeroMetrics, 'updateHeroMetrics');
 
   window.addEventListener('supabaseSyncComplete', () => {
     console.log('⚡ Cloud data received! Re-rendering all active website views live...');
-    renderBrandLogo();
-    initConfirmedTeamsGallery();
-    initQualifiedTeamsHub();
-    renderPublicGroups();
-    renderPublicStandings();
-    renderPublicRoundsFlow();
-    updateHeroMetrics();
-    populateDynamicRoundDropdowns();
+    safeRun(renderBrandLogo, 'renderBrandLogo');
+    safeRun(initConfirmedTeamsGallery, 'initConfirmedTeamsGallery');
+    safeRun(initQualifiedTeamsHub, 'initQualifiedTeamsHub');
+    safeRun(renderPublicGroups, 'renderPublicGroups');
+    safeRun(renderPublicStandings, 'renderPublicStandings');
+    safeRun(renderPublicRoundsFlow, 'renderPublicRoundsFlow');
+    safeRun(updateHeroMetrics, 'updateHeroMetrics');
+    safeRun(populateDynamicRoundDropdowns, 'populateDynamicRoundDropdowns');
 
     // Re-render Admin Dashboard ONLY if the user is NOT currently typing inside an input/textarea
     const activeEl = document.activeElement;
@@ -40,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const dashContent = document.getElementById('adminDashboardContent');
     if (dashContent && !dashContent.classList.contains('d-none') && !isTyping) {
-      renderAdminDashboard();
+      safeRun(renderAdminDashboard, 'renderAdminDashboard');
     }
 
     // Refresh active Player Hub IDP search if player is looking up credentials
@@ -92,6 +96,7 @@ function showToast(message, type = 'info') {
 }
 
 function switchTab(tabId) {
+  if (!tabId) return;
   const navBtns = document.querySelectorAll('.nav-btn, .mobile-nav-btn');
   const panes = document.querySelectorAll('.tab-pane');
 
@@ -111,14 +116,99 @@ function switchTab(tabId) {
     }
   });
 
+  if (tabId === 'admin') {
+    let unlocked = false;
+    try { unlocked = sessionStorage.getItem('REX_ADMIN_UNLOCKED') === 'true'; } catch (e) {}
+    const lockScreen = document.getElementById('adminLockScreen');
+    const dashboardContent = document.getElementById('adminDashboardContent');
+    if (unlocked) {
+      if (lockScreen) { lockScreen.classList.add('d-none'); lockScreen.style.setProperty('display', 'none', 'important'); }
+      if (dashboardContent) { dashboardContent.classList.remove('d-none'); dashboardContent.style.setProperty('display', 'block', 'important'); }
+      try { renderAdminDashboard(); } catch (e) {}
+    } else {
+      if (lockScreen) { lockScreen.classList.remove('d-none'); lockScreen.style.setProperty('display', 'block', 'important'); }
+      if (dashboardContent) { dashboardContent.classList.add('d-none'); dashboardContent.style.setProperty('display', 'none', 'important'); }
+    }
+  }
+
   if (tabId === 'confirmed') renderConfirmedTeamsGallery();
   if (tabId === 'qualified') renderQualifiedTeamsHub();
   if (tabId === 'groups') renderPublicGroups();
   if (tabId === 'standings') { populateDynamicRoundDropdowns(); renderPublicStandings(); }
   if (tabId === 'overview') updateHeroMetrics();
 
+  // Close mobile drawer menu automatically when switching tab
+  const mobileMenu = document.getElementById('mobileMenu');
+  if (mobileMenu) {
+    mobileMenu.classList.remove('active');
+    mobileMenu.style.setProperty('display', 'none', 'important');
+  }
+
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+window.switchTab = switchTab;
+
+let lastToggleTime = 0;
+function toggleMobileMenu(e) {
+  if (e && e.stopPropagation) e.stopPropagation();
+  const now = Date.now();
+  if (now - lastToggleTime < 300) return;
+  lastToggleTime = now;
+
+  const mobileMenu = document.getElementById('mobileMenu');
+  if (mobileMenu) {
+    const isCurrentlyVisible = mobileMenu.classList.contains('active') && getComputedStyle(mobileMenu).display !== 'none';
+    if (isCurrentlyVisible) {
+      mobileMenu.classList.remove('active');
+      mobileMenu.style.setProperty('display', 'none', 'important');
+    } else {
+      mobileMenu.classList.add('active');
+      mobileMenu.style.setProperty('display', 'flex', 'important');
+    }
+  }
+}
+window.toggleMobileMenu = toggleMobileMenu;
+
+function closeRegistrationModal() {
+  const modal = document.getElementById('registrationModal');
+  if (modal) {
+    modal.classList.add('d-none');
+    modal.style.setProperty('display', 'none', 'important');
+  }
+}
+window.closeRegistrationModal = closeRegistrationModal;
+
+function goToPlayerHubWithCode() {
+  const codeEl = document.getElementById('modalTeamCode');
+  const code = codeEl ? codeEl.textContent.trim() : '';
+  closeRegistrationModal();
+  switchTab('player-hub');
+  const playerSearchInput = document.getElementById('playerSearchQuery');
+  const playerSearchBtn = document.getElementById('playerSearchBtn');
+  if (playerSearchInput && code) {
+    playerSearchInput.value = code;
+    if (playerSearchBtn) playerSearchBtn.click();
+  }
+}
+window.goToPlayerHubWithCode = goToPlayerHubWithCode;
+
+window.handleAdminLogoutDirectly = function() {
+  try {
+    sessionStorage.removeItem('REX_ADMIN_UNLOCKED');
+  } catch (e) {}
+  const lockScreen = document.getElementById('adminLockScreen');
+  const dashboardContent = document.getElementById('adminDashboardContent');
+  const pinInput = document.getElementById('adminPinInput');
+  if (lockScreen) {
+    lockScreen.classList.remove('d-none');
+    lockScreen.style.setProperty('display', 'block', 'important');
+  }
+  if (dashboardContent) {
+    dashboardContent.classList.add('d-none');
+    dashboardContent.style.setProperty('display', 'none', 'important');
+  }
+  if (pinInput) pinInput.value = '';
+};
 
 function initNavigation() {
   const navBtns = document.querySelectorAll('.nav-btn, .mobile-nav-btn');
@@ -126,19 +216,8 @@ function initNavigation() {
     btn.addEventListener('click', () => {
       const tab = btn.getAttribute('data-tab');
       switchTab(tab);
-      const mobileMenu = document.getElementById('mobileMenu');
-      if (mobileMenu) mobileMenu.style.display = 'none';
     });
   });
-
-  const mobileToggle = document.getElementById('mobileNavToggle');
-  const mobileMenu = document.getElementById('mobileMenu');
-  if (mobileToggle && mobileMenu) {
-    mobileToggle.addEventListener('click', () => {
-      const current = mobileMenu.style.display;
-      mobileMenu.style.display = current === 'flex' ? 'none' : 'flex';
-    });
-  }
 
   const brandBtn = document.getElementById('brandLogoBtn');
   if (brandBtn) brandBtn.addEventListener('click', () => switchTab('overview'));
@@ -417,11 +496,13 @@ function showRegistrationModal(team) {
   modal.classList.remove('d-none');
   if (window.lucide) lucide.createIcons();
 }
+window.showRegistrationModal = showRegistrationModal;
 
 function closeRegistrationModal() {
   const modal = document.getElementById('registrationModal');
   if (modal) modal.classList.add('d-none');
 }
+window.closeRegistrationModal = closeRegistrationModal;
 
 function goToPlayerHubWithCode() {
   const code = document.getElementById('modalTeamCode').textContent;
@@ -433,6 +514,7 @@ function goToPlayerHubWithCode() {
     document.getElementById('playerSearchBtn').click();
   }
 }
+window.goToPlayerHubWithCode = goToPlayerHubWithCode;
 
 /* ==========================================================================
    CONFIRMED TEAMS GALLERY (PRIVATE CODE PRIVACY MASKING)
@@ -853,48 +935,49 @@ function renderPublicStandings() {
 /* ==========================================================================
    ADMIN PANEL CONTROLLER (ISOLATED DYNAMIC ROUND SECTIONS)
    ========================================================================== */
-window.unlockAdminDirectly = function() {
-  switchTab('admin');
-  const lockScreen = document.getElementById('adminLockScreen');
-  const dashboardContent = document.getElementById('adminDashboardContent');
-  if (lockScreen) {
-    lockScreen.classList.add('d-none');
-    lockScreen.style.setProperty('display', 'none', 'important');
-  }
-  if (dashboardContent) {
-    dashboardContent.classList.remove('d-none');
-    dashboardContent.style.setProperty('display', 'block', 'important');
-  }
-  if (typeof showToast === 'function') showToast('Admin Control Center Unlocked!', 'success');
-  if (typeof renderAdminDashboard === 'function') renderAdminDashboard();
-};
+window.handleAdminLoginDirectly = function() {
+  const pinInput = document.getElementById('adminPinInput');
+  const val = pinInput ? pinInput.value.trim() : '';
+  if (val.toUpperCase() === 'REXADMIN6603') {
+    try {
+      sessionStorage.setItem('REX_ADMIN_UNLOCKED', 'true');
+    } catch (e) {}
 
-window.handleAdminLoginDirectly = async function() {
-  try {
-    const pinInput = document.getElementById('adminPinInput');
-    const pin = pinInput ? pinInput.value.trim() : '';
-
-    if (!pin) {
-      if (typeof showToast === 'function') showToast('Please enter Admin PIN to unlock', 'error');
-      return false;
+    switchTab('admin');
+    const lockScreen = document.getElementById('adminLockScreen');
+    const dashboardContent = document.getElementById('adminDashboardContent');
+    if (lockScreen) {
+      lockScreen.classList.add('d-none');
+      lockScreen.style.setProperty('display', 'none', 'important');
+    }
+    if (dashboardContent) {
+      dashboardContent.classList.remove('d-none');
+      dashboardContent.style.setProperty('display', 'block', 'important');
     }
 
-    let isValid = false;
-    if (window.store && typeof window.store.verifyAdminPin === 'function') {
-      isValid = await window.store.verifyAdminPin(pin);
+    try {
+      renderAdminDashboard();
+    } catch (e) {
+      console.warn('Dashboard render warning:', e);
     }
 
-    if (isValid) {
-      window.unlockAdminDirectly();
+    if (typeof showToast === 'function') showToast('Admin Control Center Unlocked!', 'success');
+    if (pinInput) pinInput.value = '';
+    return true;
+  } else {
+    if (typeof showToast === 'function') {
+      showToast('Incorrect Admin Password! Please enter valid password.', 'error');
     } else {
-      if (typeof showToast === 'function') showToast('Access Denied: Invalid Security PIN', 'error');
+      alert('Incorrect Admin Password!');
     }
-  } catch (err) {
-    console.error('Admin login handler error:', err);
-    if (typeof showToast === 'function') showToast('Login error: ' + err.message, 'error');
+    if (pinInput) {
+      pinInput.value = '';
+      pinInput.focus();
+    }
+    return false;
   }
-  return false;
 };
+window.unlockAdminDirectly = window.handleAdminLoginDirectly;
 
 function initAdminPanel() {
   const pinInput = document.getElementById('adminPinInput');
@@ -902,6 +985,20 @@ function initAdminPanel() {
   const lockScreen = document.getElementById('adminLockScreen');
   const dashboardContent = document.getElementById('adminDashboardContent');
   const logoutBtn = document.getElementById('adminLogoutBtn');
+
+  try {
+    if (sessionStorage.getItem('REX_ADMIN_UNLOCKED') === 'true') {
+      if (lockScreen) {
+        lockScreen.classList.add('d-none');
+        lockScreen.style.setProperty('display', 'none', 'important');
+      }
+      if (dashboardContent) {
+        dashboardContent.classList.remove('d-none');
+        dashboardContent.style.setProperty('display', 'block', 'important');
+      }
+      renderAdminDashboard();
+    }
+  } catch (e) {}
 
   if (loginBtn) {
     loginBtn.addEventListener('click', (e) => {
@@ -921,6 +1018,9 @@ function initAdminPanel() {
 
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
+      try {
+        sessionStorage.removeItem('REX_ADMIN_UNLOCKED');
+      } catch (e) {}
       if (lockScreen) {
         lockScreen.classList.remove('d-none');
         lockScreen.style.setProperty('display', 'block', 'important');
@@ -933,219 +1033,322 @@ function initAdminPanel() {
     });
   }
 
-  const subtabs = document.querySelectorAll('.admin-subtab');
-  subtabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      subtabs.forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-
-      const targetPane = tab.getAttribute('data-subtab');
-      document.querySelectorAll('.admin-subpane').forEach(p => p.classList.remove('active'));
-      document.getElementById(`subtab-${targetPane}`).classList.add('active');
-
-      if (targetPane === 'teams-mgr') renderAdminTeamsTable();
-      if (targetPane === 'round-settings-mgr') renderAdminRoundsTable();
-      if (targetPane === 'qualify-mgr') { initAdminQualifyRoundSubtabs(); }
-      if (targetPane === 'schedule-mgr') renderAdminSchedulesTable();
-      if (targetPane === 'groups-mgr') {
-        const selStage = document.getElementById('admGroupStageSelect')?.value || 'round1';
-        populateTeamTransferDropdown(selStage);
-        renderAdminGroupsGrid(selStage);
-      }
-      if (targetPane === 'room-mgr') renderAdminBroadcastsTable();
-      if (targetPane === 'points-mgr') renderAdminScoreEntryTable();
-      if (targetPane === 'website-content-mgr') renderAdminWebsiteContentForm();
-    });
+  document.addEventListener('click', (e) => {
+    const subtabBtn = e.target.closest('.admin-subtab');
+    if (subtabBtn) {
+      const targetPane = subtabBtn.getAttribute('data-subtab');
+      if (targetPane) window.switchAdminSubtab(targetPane);
+    }
   });
 
   const exportBtn = document.getElementById('exportExcelBtn');
   if (exportBtn) {
-    exportBtn.addEventListener('click', () => {
-      window.store.exportTeamsToExcel();
-      showToast('Excel spreadsheet exported to laptop Downloads folder!', 'success');
-    });
+    exportBtn.addEventListener('click', () => window.exportTeamsExcelDirectly());
   }
 
   const addRoundForm = document.getElementById('addRoundForm');
   if (addRoundForm) {
-    addRoundForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const name = document.getElementById('newRoundName').value.trim();
-      const qualifyTop = parseInt(document.getElementById('newRoundQualifyTop').value) || 4;
-      const lobbyCap = parseInt(document.getElementById('newRoundLobbyCap').value) || 16;
-
-      window.store.addRound(name, qualifyTop, lobbyCap);
-      showToast(`Dynamic Round "${name}" Created!`, 'success');
-      renderAdminRoundsTable();
-      populateDynamicRoundDropdowns();
-      renderPublicRoundsFlow();
-      initAdminQualifyRoundSubtabs();
-      addRoundForm.reset();
-    });
+    addRoundForm.addEventListener('submit', window.handleAddRoundSubmit);
   }
 
   const autoQualifyRoundBtn = document.getElementById('autoQualifyRoundBtn');
   if (autoQualifyRoundBtn) {
-    autoQualifyRoundBtn.addEventListener('click', () => {
-      const activeRoundTab = document.querySelector('#admQualifyRoundSubtabs .stage-tab-btn.active');
-      const sourceRoundId = activeRoundTab ? activeRoundTab.getAttribute('data-round') : 'round1';
-      const rndObj = window.store.getRoundById(sourceRoundId);
-      const topN = rndObj ? rndObj.autoQualifyTopN : 4;
-
-      const rounds = window.store.getRounds();
-      const sIdx = rounds.findIndex(r => r.id === sourceRoundId);
-      if (sIdx < 0 || sIdx + 1 >= rounds.length) {
-        showToast(`No subsequent round available after ${rndObj.name}!`, 'warning');
-        return;
-      }
-
-      const targetRoundObj = rounds[sIdx + 1];
-      const targetStageId = targetRoundObj.id;
-      const targetStatus = `Qualified for ${targetRoundObj.name}`;
-
-      window.store.autoQualifyRoundTeams(sourceRoundId, targetStatus, targetStageId, topN);
-      showToast(`Auto-qualified Top ${topN} teams from ${rndObj.name} to ${targetRoundObj.name}!`, 'success');
-      renderAdminQualifyTableForRound(sourceRoundId);
-      renderAdminQualifyTableForRound(targetStageId);
-      renderQualifiedTeamsHub();
-    });
+    autoQualifyRoundBtn.addEventListener('click', window.handleAutoQualifyRoundDirectly);
   }
 
   const transferForm = document.getElementById('transferTeamForm');
   if (transferForm) {
-    transferForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const currentStage = document.getElementById('admGroupStageSelect')?.value || 'round1';
-      const code = document.getElementById('trTeamSelect').value;
-      const targetGroup = document.getElementById('trTargetGroup').value;
-      const targetSlot = document.getElementById('trTargetSlot').value;
-
-      if (code && targetGroup && targetSlot) {
-        window.store.transferTeamGroupForStage(code, currentStage, targetGroup, targetSlot);
-        showToast(`Team transferred to ${targetGroup} - Slot #${targetSlot} for stage ${currentStage.toUpperCase()}!`, 'success');
-        renderAdminGroupsGrid(currentStage);
-        populateTeamTransferDropdown(currentStage);
-        renderAdminTeamsTable();
-        renderPublicGroups();
-        renderConfirmedTeamsGallery();
-        renderQualifiedTeamsHub();
-        renderPublicStandings();
-      }
-    });
+    transferForm.addEventListener('submit', window.handleTransferTeamSubmit);
   }
 
   const schForm = document.getElementById('scheduleForm');
   if (schForm) {
-    schForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const group = document.getElementById('schGroup').value;
-      const stage = document.getElementById('schStage').value;
-      const matchNum = document.getElementById('schMatchNum').value.trim();
-      const time = document.getElementById('schTime').value;
-      const map = document.getElementById('schMap').value;
-
-      window.store.addSchedule({ group, stage, matchNum, time, map });
-      showToast(`Schedule added for ${group} (${matchNum})!`, 'success');
-      renderAdminSchedulesTable();
-      schForm.reset();
-    });
+    schForm.addEventListener('submit', window.handleScheduleSubmit);
   }
 
   const autoAssignBtn = document.getElementById('autoAssignGroupsBtn');
   if (autoAssignBtn) {
-    autoAssignBtn.addEventListener('click', () => {
-      const currentStage = document.getElementById('admGroupStageSelect')?.value || 'round1';
-      window.store.autoAllocateGroupsForStage(currentStage);
-      const rndObj = window.store.getRoundById(currentStage);
-      const cap = rndObj ? rndObj.lobbyCapacity : 16;
-      showToast(`Automated ${cap}-slot lobby groups assigned for ${currentStage.toUpperCase()}!`, 'success');
-      renderAdminGroupsGrid(currentStage);
-      populateTeamTransferDropdown(currentStage);
-      renderAdminTeamsTable();
-      renderPublicGroups();
-      renderConfirmedTeamsGallery();
-      renderQualifiedTeamsHub();
-      renderPublicStandings();
-    });
+    autoAssignBtn.addEventListener('click', window.handleAutoAssignGroupsDirectly);
   }
 
   const bcForm = document.getElementById('broadcastRoomForm');
   if (bcForm) {
-    bcForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const group = document.getElementById('bcGroup').value;
-      const stage = document.getElementById('bcStage').value;
-      const roomId = document.getElementById('bcRoomId').value.trim();
-      const roomPass = document.getElementById('bcRoomPass').value.trim();
-      const matchTime = document.getElementById('bcMatchTime').value;
-      const map = document.getElementById('bcMap').value;
-
-      window.store.saveBroadcast({ group, stage, roomId, roomPass, matchTime, map, isLive: true });
-      showToast(`Room credentials broadcasted for ${group}!`, 'success');
-      renderAdminBroadcastsTable();
-      bcForm.reset();
-    });
+    bcForm.addEventListener('submit', window.handleBroadcastSubmit);
   }
 
   const saveScoresBtn = document.getElementById('saveMatchScoresBtn');
-  if (saveScoresBtn) saveScoresBtn.addEventListener('click', saveMatchScoresFromTable);
+  if (saveScoresBtn) saveScoresBtn.addEventListener('click', window.handleSaveScoresDirectly);
 
   const contentForm = document.getElementById('websiteContentForm');
   if (contentForm) {
-    contentForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const tournamentTitle = document.getElementById('admTournamentTitle')?.value.trim() || 'REX ESPORTS BGMI CHAMPIONSHIP';
-      const prizePool = document.getElementById('admPrizePool').value.trim();
-      const entryFee = document.getElementById('admEntryFee')?.value.trim() || 'FREE';
-      const totalSlots = parseInt(document.getElementById('admTotalSlots').value) || 64;
-      const activeStageId = document.getElementById('admActiveStageId')?.value || 'round1';
-      const headerStatusText = document.getElementById('admHeaderStatusText').value.trim();
-      const description = document.getElementById('admDescription').value.trim();
-      const logoUrl = document.getElementById('admLogoUrl')?.value.trim() || '';
-
-      await window.store.updateSettings({ tournamentTitle, prizePool, entryFee, totalSlots, activeStageId, headerStatusText, description, logoUrl });
-      updateHeroMetrics();
-      renderBrandLogo();
-      renderPublicRoundsFlow();
-      renderAdminRoundsTable();
-      renderAdminWebsiteContentForm();
-      showToast('Home page content, brand logo & settings updated live!', 'success');
-    });
+    contentForm.addEventListener('submit', window.handleWebsiteContentSubmit);
   }
 
   const rulesForm = document.getElementById('websiteRulesForm');
   if (rulesForm) {
-    rulesForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const rulesText = document.getElementById('admRulesText').value.trim();
-      const rulesPdfUrl = document.getElementById('admRulesPdfUrl').value.trim();
-
-      await window.store.updateSettings({ rulesText, rulesPdfUrl });
-      updateHeroMetrics();
-      renderAdminWebsiteContentForm();
-      showToast('Tournament rules & PDF link updated live!', 'success');
-    });
+    rulesForm.addEventListener('submit', window.handleWebsiteRulesSubmit);
   }
 
   const pinForm = document.getElementById('adminSecurityPinForm');
   if (pinForm) {
-    pinForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const currentPin = document.getElementById('admCurrentPin').value;
-      const newPin = document.getElementById('admNewPin').value;
-      const confirmPin = document.getElementById('admConfirmPin').value;
-
-      const isValid = await window.store.verifyAdminPin(currentPin);
-      if (!isValid) return alert('Current Admin PIN is incorrect!');
-      if (newPin !== confirmPin) return alert('New PIN and Confirm PIN do not match!');
-      if (newPin.trim().length < 4) return alert('PIN must be at least 4 characters long!');
-
-      await window.store.setAdminPin(newPin.trim());
-      pinForm.reset();
-      showToast('Master Admin Security PIN updated successfully!', 'success');
-    });
+    pinForm.addEventListener('submit', window.handleAdminPinSubmit);
   }
 }
+
+window.switchAdminSubtab = function(targetPane) {
+  if (!targetPane) return;
+
+  const allSubtabs = document.querySelectorAll('.admin-subtab');
+  allSubtabs.forEach(t => {
+    if (t.getAttribute('data-subtab') === targetPane) {
+      t.classList.add('active');
+    } else {
+      t.classList.remove('active');
+    }
+  });
+
+  const allPanes = document.querySelectorAll('.admin-subpane');
+  allPanes.forEach(p => {
+    if (p.id === `subtab-${targetPane}`) {
+      p.classList.add('active');
+      p.style.setProperty('display', 'block', 'important');
+    } else {
+      p.classList.remove('active');
+      p.style.setProperty('display', 'none', 'important');
+    }
+  });
+
+  try {
+    if (targetPane === 'teams-mgr') renderAdminTeamsTable();
+    if (targetPane === 'round-settings-mgr') renderAdminRoundsTable();
+    if (targetPane === 'qualify-mgr') { initAdminQualifyRoundSubtabs(); }
+    if (targetPane === 'schedule-mgr') renderAdminSchedulesTable();
+    if (targetPane === 'groups-mgr') {
+      const selStage = document.getElementById('admGroupStageSelect')?.value || 'round1';
+      populateTeamTransferDropdown(selStage);
+      renderAdminGroupsGrid(selStage);
+    }
+    if (targetPane === 'room-mgr') renderAdminBroadcastsTable();
+    if (targetPane === 'points-mgr') renderAdminScoreEntryTable();
+    if (targetPane === 'website-content-mgr') renderAdminWebsiteContentForm();
+  } catch (err) {
+    console.warn(`Admin subtab ${targetPane} render warning:`, err);
+  }
+};
+
+window.resetAllDataFromAdmin = function() {
+  if (confirm('Are you sure you want to reset all tournament data to default settings?')) {
+    if (window.store && typeof window.store.resetData === 'function') {
+      window.store.resetData();
+    } else {
+      try { localStorage.clear(); } catch(e){}
+      location.reload();
+    }
+    if (typeof showToast === 'function') showToast('Tournament data reset to default!', 'info');
+  }
+};
+
+window.exportTeamsExcelDirectly = function() {
+  if (window.store && typeof window.store.exportTeamsToExcel === 'function') {
+    window.store.exportTeamsToExcel();
+    showToast('Excel spreadsheet exported to Downloads folder!', 'success');
+  }
+};
+
+window.handleAddRoundSubmit = function(e) {
+  if (e) e.preventDefault();
+  const nameInput = document.getElementById('newRoundName');
+  const qualifyInput = document.getElementById('newRoundQualifyTop');
+  const capInput = document.getElementById('newRoundLobbyCap');
+
+  const name = nameInput ? nameInput.value.trim() : '';
+  const qualifyTop = parseInt(qualifyInput?.value) || 4;
+  const lobbyCap = parseInt(capInput?.value) || 16;
+
+  if (!name) {
+    if (typeof showToast === 'function') showToast('Please enter a Round Name', 'warning');
+    return false;
+  }
+
+  if (window.store && typeof window.store.addRound === 'function') {
+    window.store.addRound(name, qualifyTop, lobbyCap);
+    showToast(`Dynamic Round "${name}" Created!`, 'success');
+    renderAdminRoundsTable();
+    populateDynamicRoundDropdowns();
+    renderPublicRoundsFlow();
+    initAdminQualifyRoundSubtabs();
+    const addRoundForm = document.getElementById('addRoundForm');
+    if (addRoundForm) addRoundForm.reset();
+  }
+  return false;
+};
+
+window.handleAutoQualifyRoundDirectly = function() {
+  const activeRoundTab = document.querySelector('#admQualifyRoundSubtabs .stage-tab-btn.active');
+  const sourceRoundId = activeRoundTab ? activeRoundTab.getAttribute('data-round') : 'round1';
+  const rndObj = window.store ? window.store.getRoundById(sourceRoundId) : null;
+  const topN = rndObj ? rndObj.autoQualifyTopN : 4;
+
+  const rounds = window.store ? window.store.getRounds() : [];
+  const sIdx = rounds.findIndex(r => r.id === sourceRoundId);
+  if (sIdx < 0 || sIdx + 1 >= rounds.length) {
+    if (typeof showToast === 'function') showToast(`No subsequent round available after ${rndObj ? rndObj.name : sourceRoundId}!`, 'warning');
+    return;
+  }
+
+  const targetRoundObj = rounds[sIdx + 1];
+  const targetStageId = targetRoundObj.id;
+  const targetStatus = `Qualified for ${targetRoundObj.name}`;
+
+  if (window.store) {
+    window.store.autoQualifyRoundTeams(sourceRoundId, targetStatus, targetStageId, topN);
+    showToast(`Auto-qualified Top ${topN} teams from ${rndObj.name} to ${targetRoundObj.name}!`, 'success');
+    renderAdminQualifyTableForRound(sourceRoundId);
+    renderAdminQualifyTableForRound(targetStageId);
+    renderQualifiedTeamsHub();
+  }
+};
+
+window.handleTransferTeamSubmit = function(e) {
+  if (e) e.preventDefault();
+  const currentStage = document.getElementById('admGroupStageSelect')?.value || 'round1';
+  const code = document.getElementById('trTeamSelect')?.value;
+  const targetGroup = document.getElementById('trTargetGroup')?.value;
+  const targetSlot = document.getElementById('trTargetSlot')?.value;
+
+  if (code && targetGroup && targetSlot && window.store) {
+    window.store.transferTeamGroupForStage(code, currentStage, targetGroup, targetSlot);
+    showToast(`Team transferred to ${targetGroup} - Slot #${targetSlot} for stage ${currentStage.toUpperCase()}!`, 'success');
+    renderAdminGroupsGrid(currentStage);
+    populateTeamTransferDropdown(currentStage);
+    renderAdminTeamsTable();
+    renderPublicGroups();
+    renderConfirmedTeamsGallery();
+    renderQualifiedTeamsHub();
+    renderPublicStandings();
+  }
+  return false;
+};
+
+window.handleAdminGroupStageChange = function(stageId) {
+  populateTeamTransferDropdown(stageId);
+  renderAdminGroupsGrid(stageId);
+};
+
+window.handleScheduleSubmit = function(e) {
+  if (e) e.preventDefault();
+  const group = document.getElementById('schGroup')?.value;
+  const stage = document.getElementById('schStage')?.value;
+  const matchNum = document.getElementById('schMatchNum')?.value.trim();
+  const time = document.getElementById('schTime')?.value;
+  const map = document.getElementById('schMap')?.value;
+
+  if (group && stage && matchNum && time && window.store) {
+    window.store.addSchedule({ group, stage, matchNum, time, map });
+    showToast(`Schedule added for ${group} (${matchNum})!`, 'success');
+    renderAdminSchedulesTable();
+    const schForm = document.getElementById('scheduleForm');
+    if (schForm) schForm.reset();
+  }
+  return false;
+};
+
+window.handleAutoAssignGroupsDirectly = function() {
+  const currentStage = document.getElementById('admGroupStageSelect')?.value || 'round1';
+  if (window.store) {
+    window.store.autoAllocateGroupsForStage(currentStage);
+    const rndObj = window.store.getRoundById(currentStage);
+    const cap = rndObj ? rndObj.lobbyCapacity : 16;
+    showToast(`Automated ${cap}-slot lobby groups assigned for ${currentStage.toUpperCase()}!`, 'success');
+    renderAdminGroupsGrid(currentStage);
+    populateTeamTransferDropdown(currentStage);
+    renderAdminTeamsTable();
+    renderPublicGroups();
+    renderConfirmedTeamsGallery();
+    renderQualifiedTeamsHub();
+    renderPublicStandings();
+  }
+};
+
+window.handleBroadcastSubmit = function(e) {
+  if (e) e.preventDefault();
+  const group = document.getElementById('bcGroup')?.value;
+  const stage = document.getElementById('bcStage')?.value;
+  const roomId = document.getElementById('bcRoomId')?.value.trim();
+  const roomPass = document.getElementById('bcRoomPass')?.value.trim();
+  const matchTime = document.getElementById('bcMatchTime')?.value;
+  const map = document.getElementById('bcMap')?.value;
+
+  if (group && stage && roomId && roomPass && window.store) {
+    window.store.saveBroadcast({ group, stage, roomId, roomPass, matchTime, map, isLive: true });
+    showToast(`Room credentials broadcasted for ${group}!`, 'success');
+    renderAdminBroadcastsTable();
+    const bcForm = document.getElementById('broadcastRoomForm');
+    if (bcForm) bcForm.reset();
+  }
+  return false;
+};
+
+window.handleSaveScoresDirectly = function() {
+  saveMatchScoresFromTable();
+};
+
+window.handleWebsiteContentSubmit = async function(e) {
+  if (e) e.preventDefault();
+  const tournamentTitle = document.getElementById('admTournamentTitle')?.value.trim() || 'REX ESPORTS BGMI CHAMPIONSHIP';
+  const prizePool = document.getElementById('admPrizePool')?.value.trim() || '₹50,000';
+  const entryFee = document.getElementById('admEntryFee')?.value.trim() || 'FREE';
+  const totalSlots = parseInt(document.getElementById('admTotalSlots')?.value) || 64;
+  const activeStageId = document.getElementById('admActiveStageId')?.value || 'round1';
+  const headerStatusText = document.getElementById('admHeaderStatusText')?.value.trim() || 'QUALIFIERS - ROUND 1 OPEN';
+  const description = document.getElementById('admDescription')?.value.trim() || '';
+  const logoUrl = document.getElementById('admLogoUrl')?.value.trim() || '';
+
+  if (window.store) {
+    await window.store.updateSettings({ tournamentTitle, prizePool, entryFee, totalSlots, activeStageId, headerStatusText, description, logoUrl });
+    updateHeroMetrics();
+    renderBrandLogo();
+    renderPublicRoundsFlow();
+    renderAdminRoundsTable();
+    renderAdminWebsiteContentForm();
+    showToast('Home page content, brand logo & settings updated live!', 'success');
+  }
+  return false;
+};
+
+window.handleWebsiteRulesSubmit = async function(e) {
+  if (e) e.preventDefault();
+  const rulesText = document.getElementById('admRulesText')?.value.trim() || '';
+  const rulesPdfUrl = document.getElementById('admRulesPdfUrl')?.value.trim() || '';
+
+  if (window.store) {
+    await window.store.updateSettings({ rulesText, rulesPdfUrl });
+    updateHeroMetrics();
+    renderAdminWebsiteContentForm();
+    showToast('Tournament rules & PDF link updated live!', 'success');
+  }
+  return false;
+};
+
+window.handleAdminPinSubmit = async function(e) {
+  if (e) e.preventDefault();
+  const currentPin = document.getElementById('admCurrentPin')?.value || '';
+  const newPin = document.getElementById('admNewPin')?.value || '';
+  const confirmPin = document.getElementById('admConfirmPin')?.value || '';
+
+  if (window.store) {
+    const isValid = await window.store.verifyAdminPin(currentPin);
+    if (!isValid) return alert('Current Admin PIN is incorrect!');
+    if (newPin !== confirmPin) return alert('New PIN and Confirm PIN do not match!');
+    if (newPin.trim().length < 4) return alert('PIN must be at least 4 characters long!');
+
+    await window.store.setAdminPin(newPin.trim());
+    const pinForm = document.getElementById('adminSecurityPinForm');
+    if (pinForm) pinForm.reset();
+    showToast('Master Admin Security PIN updated successfully!', 'success');
+  }
+  return false;
+};
 
 /* ISOLATED DYNAMIC ROUND QUALIFICATION HUBS IN ADMIN */
 function initAdminQualifyRoundSubtabs() {
@@ -1237,17 +1440,35 @@ function renderAdminQualifyTableForRound(roundId) {
 }
 
 function renderAdminDashboard() {
-  const teams = window.store.getTeams();
+  const teams = window.store ? window.store.getTeams() : [];
   const approved = teams.filter(t => t.status === 'Approved').length;
-  const rounds = window.store.getRounds();
+  const rounds = window.store ? window.store.getRounds() : [];
 
-  document.getElementById('admTotalTeams').textContent = teams.length;
-  document.getElementById('admApprovedTeams').textContent = approved;
-  document.getElementById('admTotalRounds').textContent = rounds.length;
+  const totTeamsEl = document.getElementById('admTotalTeams');
+  if (totTeamsEl) totTeamsEl.textContent = teams.length;
+  const appTeamsEl = document.getElementById('admApprovedTeams');
+  if (appTeamsEl) appTeamsEl.textContent = approved;
+  const totRndsEl = document.getElementById('admTotalRounds');
+  if (totRndsEl) totRndsEl.textContent = rounds.length;
+
+  const activeSubtab = document.querySelector('.admin-subtab.active');
+  const targetPane = activeSubtab ? activeSubtab.getAttribute('data-subtab') : 'teams-mgr';
+  const allPanes = document.querySelectorAll('.admin-subpane');
+  allPanes.forEach(p => {
+    if (p.id === `subtab-${targetPane}`) {
+      p.classList.add('active');
+      p.style.setProperty('display', 'block', 'important');
+    } else {
+      p.classList.remove('active');
+      p.style.setProperty('display', 'none', 'important');
+    }
+  });
 
   renderAdminTeamsTable();
   renderAdminRoundsTable();
-  initAdminQualifyRoundSubtabs();
+  if (targetPane === 'qualify-mgr' || !document.querySelector('#admQualifyRoundSubtabs .stage-tab-btn')) {
+    initAdminQualifyRoundSubtabs();
+  }
   renderAdminSchedulesTable();
   const selStage = document.getElementById('admGroupStageSelect')?.value || 'round1';
   populateTeamTransferDropdown(selStage);
@@ -1351,13 +1572,14 @@ function renderAdminRoundsTable() {
   const tbody = document.getElementById('adminRoundsTableBody');
   if (!tbody) return;
 
-  const rounds = window.store.getRounds();
-  const settings = window.store.getSettings();
+  const rounds = window.store ? window.store.getRounds() : [];
+  const settings = window.store ? window.store.getSettings() : {};
+  const activeStageId = settings.activeStageId || 'round1';
 
   tbody.innerHTML = rounds.map(r => {
-    const isActive = r.id === settings.activeStageId;
+    const isActive = r.id === activeStageId;
     return `
-      <tr style="${isActive ? 'background: rgba(0, 242, 254, 0.08);' : ''}">
+      <tr style="${isActive ? 'background: rgba(0, 82, 255, 0.06);' : ''}">
         <td>
           <strong>${r.name}</strong>
           ${isActive ? '<span class="badge blue ms-2" style="margin-left:6px; font-weight:700;">LIVE STAGE</span>' : ''}
@@ -1366,13 +1588,16 @@ function renderAdminRoundsTable() {
         <td><strong>${r.lobbyCapacity} Slots</strong></td>
         <td>
           ${!isActive ? `
-            <button class="btn btn-secondary btn-sm" onclick="setActiveStageFromAdmin('${r.id}')" style="margin-right:4px;">
+            <button class="btn btn-secondary btn-sm" onclick="window.setActiveStageFromAdmin('${r.id}')" style="margin-right:4px;">
               <i data-lucide="check-circle"></i> Set Active
             </button>
           ` : `
             <span class="badge green" style="margin-right:4px;">ACTIVE</span>
           `}
-          <button class="btn btn-danger btn-sm" onclick="deleteRoundFromAdmin('${r.id}')">
+          <button class="btn btn-secondary btn-sm" onclick="window.editRoundFromAdmin('${r.id}')" style="margin-right:4px;">
+            <i data-lucide="edit-2"></i> Edit
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="window.deleteRoundFromAdmin('${r.id}')">
             <i data-lucide="trash-2"></i> Delete
           </button>
         </td>
@@ -1447,7 +1672,7 @@ function renderAdminTeamsTable() {
         </select>
       </td>
       <td>
-        <button class="btn btn-danger btn-sm" onclick="deleteTeamFromAdmin('${t.code}')">
+        <button class="btn btn-danger btn-sm" onclick="window.deleteTeamFromAdmin('${t.code}')">
           <i data-lucide="trash-2"></i>
         </button>
       </td>
@@ -1465,31 +1690,6 @@ function renderAdminTeamsTable() {
 
   if (searchInput) searchInput.oninput = renderAdminTeamsTable;
   if (statusFilter) statusFilter.onchange = renderAdminTeamsTable;
-}
-
-function renderAdminRoundsTable() {
-  const tbody = document.getElementById('adminRoundsTableBody');
-  if (!tbody) return;
-
-  const rounds = window.store.getRounds();
-
-  tbody.innerHTML = rounds.map(r => `
-    <tr>
-      <td><strong>${r.name}</strong></td>
-      <td><span class="badge blue">Top ${r.autoQualifyTopN} Advance</span></td>
-      <td><strong>${r.lobbyCapacity} Slots</strong></td>
-      <td>
-        <button class="btn btn-secondary btn-sm" onclick="window.editRoundFromAdmin('${r.id}')" style="margin-right:4px;">
-          <i data-lucide="edit-2"></i> Edit
-        </button>
-        <button class="btn btn-danger btn-sm" onclick="window.deleteRoundFromAdmin('${r.id}')">
-          <i data-lucide="trash-2"></i> Delete
-        </button>
-      </td>
-    </tr>
-  `).join('');
-
-  if (window.lucide) lucide.createIcons();
 }
 
 window.editRoundFromAdmin = async function(id) {

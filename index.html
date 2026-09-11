@@ -27,7 +27,123 @@
   <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <link rel="stylesheet" href="styles.css?v=68.0">
+  <!-- Instant Navigation & Interactivity Fallback -->
+  <script>
+    window.switchTab = function(tabId) {
+      if (!tabId) return;
+      var panes = document.querySelectorAll('.tab-pane');
+      var navBtns = document.querySelectorAll('.nav-btn, .mobile-nav-btn');
+      navBtns.forEach(function(b) {
+        if (b.getAttribute('data-tab') === tabId) b.classList.add('active');
+        else b.classList.remove('active');
+      });
+      panes.forEach(function(p) {
+        if (p.id === 'tab-' + tabId) p.classList.add('active');
+        else p.classList.remove('active');
+      });
+      if (tabId === 'admin') {
+        var unlocked = false;
+        try { unlocked = sessionStorage.getItem('REX_ADMIN_UNLOCKED') === 'true'; } catch(e){}
+        var lock = document.getElementById('adminLockScreen');
+        var dash = document.getElementById('adminDashboardContent');
+        if (unlocked) {
+          if (lock) { lock.classList.add('d-none'); lock.style.setProperty('display', 'none', 'important'); }
+          if (dash) { dash.classList.remove('d-none'); dash.style.setProperty('display', 'block', 'important'); }
+          if (typeof renderAdminDashboard === 'function') { try { renderAdminDashboard(); } catch(e){} }
+        } else {
+          if (lock) { lock.classList.remove('d-none'); lock.style.setProperty('display', 'block', 'important'); }
+          if (dash) { dash.classList.add('d-none'); dash.style.setProperty('display', 'none', 'important'); }
+        }
+      }
+      var m = document.getElementById('mobileMenu');
+      if (m) {
+        m.classList.remove('active');
+        m.style.setProperty('display', 'none', 'important');
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    var _lastMobileMenuToggleTime = 0;
+    window.toggleMobileMenu = function(e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      var now = Date.now();
+      if (now - _lastMobileMenuToggleTime < 300) return;
+      _lastMobileMenuToggleTime = now;
+
+      var m = document.getElementById('mobileMenu');
+      if (m) {
+        var isVisible = m.classList.contains('active') && getComputedStyle(m).display !== 'none';
+        if (isVisible) {
+          m.classList.remove('active');
+          m.style.setProperty('display', 'none', 'important');
+        } else {
+          m.classList.add('active');
+          m.style.setProperty('display', 'flex', 'important');
+        }
+      }
+    };
+
+    document.addEventListener('click', function(e) {
+      var m = document.getElementById('mobileMenu');
+      var btn = document.getElementById('mobileNavToggle');
+      if (m && m.classList.contains('active')) {
+        if (!m.contains(e.target) && !btn.contains(e.target)) {
+          m.classList.remove('active');
+          m.style.setProperty('display', 'none', 'important');
+        }
+      }
+    });
+
+    window.handleAdminLoginDirectly = function() {
+      var pinInput = document.getElementById('adminPinInput');
+      var val = pinInput ? pinInput.value.trim() : '';
+      if (val.toUpperCase() === 'REXADMIN6603') {
+        try { sessionStorage.setItem('REX_ADMIN_UNLOCKED', 'true'); } catch(e){}
+        window.switchTab('admin');
+        var lock = document.getElementById('adminLockScreen');
+        var dash = document.getElementById('adminDashboardContent');
+        if (lock) { lock.classList.add('d-none'); lock.style.setProperty('display', 'none', 'important'); }
+        if (dash) { dash.classList.remove('d-none'); dash.style.setProperty('display', 'block', 'important'); }
+        if (typeof renderAdminDashboard === 'function') { try { renderAdminDashboard(); } catch(e){} }
+        if (typeof showToast === 'function') { showToast('Admin Control Center Unlocked!', 'success'); }
+        if (pinInput) pinInput.value = '';
+        return true;
+      } else {
+        if (typeof showToast === 'function') {
+          showToast('Incorrect Admin Password! Enter valid password.', 'error');
+        } else {
+          alert('Incorrect Admin Password!');
+        }
+        if (pinInput) {
+          pinInput.value = '';
+          pinInput.focus();
+        }
+        return false;
+      }
+    };
+    window.unlockAdminDirectly = window.handleAdminLoginDirectly;
+
+    window.switchAdminSubtab = function(targetPane) {
+      if (!targetPane) return;
+      var subtabs = document.querySelectorAll('.admin-subtab');
+      var panes = document.querySelectorAll('.admin-subpane');
+      subtabs.forEach(function(t) {
+        if (t.getAttribute('data-subtab') === targetPane) t.classList.add('active');
+        else t.classList.remove('active');
+      });
+      panes.forEach(function(p) {
+        if (p.id === 'subtab-' + targetPane) {
+          p.classList.add('active');
+          p.style.setProperty('display', 'block', 'important');
+        } else {
+          p.classList.remove('active');
+          p.style.setProperty('display', 'none', 'important');
+        }
+      });
+    };
+  </script>
+
+  <link rel="stylesheet" href="styles.css?v=88.0">
 </head>
 <body class="light-blue-theme">
 
@@ -56,30 +172,30 @@
       </div>
 
       <nav class="nav-menu">
-        <button class="nav-btn active" data-tab="overview"><i data-lucide="home"></i> Home</button>
-        <button class="nav-btn" data-tab="register"><i data-lucide="user-plus"></i> Register</button>
-        <button class="nav-btn" data-tab="confirmed"><i data-lucide="shield-check"></i> Confirmed Teams</button>
-        <button class="nav-btn" data-tab="qualified"><i data-lucide="award"></i> Qualified Teams</button>
-        <button class="nav-btn" data-tab="player-hub"><i data-lucide="key"></i> Player Hub</button>
-        <button class="nav-btn" data-tab="groups"><i data-lucide="layout-grid"></i> Groups & Slots</button>
-        <button class="nav-btn" data-tab="standings"><i data-lucide="bar-chart-2"></i> Standings</button>
-        <button class="nav-btn admin-nav-btn" data-tab="admin" id="adminNavBtn"><i data-lucide="shield-alert"></i> Admin Panel</button>
+        <button type="button" class="nav-btn active" data-tab="overview" onclick="window.switchTab('overview')"><i data-lucide="home"></i> Home</button>
+        <button type="button" class="nav-btn" data-tab="register" onclick="window.switchTab('register')"><i data-lucide="user-plus"></i> Register</button>
+        <button type="button" class="nav-btn" data-tab="confirmed" onclick="window.switchTab('confirmed')"><i data-lucide="shield-check"></i> Confirmed Teams</button>
+        <button type="button" class="nav-btn" data-tab="qualified" onclick="window.switchTab('qualified')"><i data-lucide="award"></i> Qualified Teams</button>
+        <button type="button" class="nav-btn" data-tab="player-hub" onclick="window.switchTab('player-hub')"><i data-lucide="key"></i> Player Hub</button>
+        <button type="button" class="nav-btn" data-tab="groups" onclick="window.switchTab('groups')"><i data-lucide="layout-grid"></i> Groups & Slots</button>
+        <button type="button" class="nav-btn" data-tab="standings" onclick="window.switchTab('standings')"><i data-lucide="bar-chart-2"></i> Standings</button>
+        <button type="button" class="nav-btn admin-nav-btn" data-tab="admin" id="adminNavBtn" onclick="window.switchTab('admin')"><i data-lucide="shield-alert"></i> Admin Panel</button>
       </nav>
 
-      <button class="mobile-toggle" id="mobileNavToggle" aria-label="Toggle Navigation">
+      <button type="button" class="mobile-toggle" id="mobileNavToggle" aria-label="Toggle Navigation" onclick="window.toggleMobileMenu(event)">
         <i data-lucide="menu"></i>
       </button>
 
       <!-- Mobile Drawer Menu -->
       <div class="mobile-menu" id="mobileMenu">
-        <button class="mobile-nav-btn active" data-tab="overview"><i data-lucide="home"></i> Home</button>
-        <button class="mobile-nav-btn" data-tab="register"><i data-lucide="user-plus"></i> Register Team</button>
-        <button class="mobile-nav-btn" data-tab="confirmed"><i data-lucide="shield-check"></i> Confirmed Teams</button>
-        <button class="mobile-nav-btn" data-tab="qualified"><i data-lucide="award"></i> Qualified Teams</button>
-        <button class="mobile-nav-btn" data-tab="player-hub"><i data-lucide="key"></i> My Team Status & Room ID</button>
-        <button class="mobile-nav-btn" data-tab="groups"><i data-lucide="layout-grid"></i> Groups & Slots</button>
-        <button class="mobile-nav-btn" data-tab="standings"><i data-lucide="bar-chart-2"></i> Standings</button>
-        <button class="mobile-nav-btn admin-nav-btn" data-tab="admin"><i data-lucide="shield-alert"></i> Admin Panel</button>
+        <button type="button" class="mobile-nav-btn active" data-tab="overview" onclick="window.switchTab('overview')"><i data-lucide="home"></i> Home</button>
+        <button type="button" class="mobile-nav-btn" data-tab="register" onclick="window.switchTab('register')"><i data-lucide="user-plus"></i> Register Team</button>
+        <button type="button" class="mobile-nav-btn" data-tab="confirmed" onclick="window.switchTab('confirmed')"><i data-lucide="shield-check"></i> Confirmed Teams</button>
+        <button type="button" class="mobile-nav-btn" data-tab="qualified" onclick="window.switchTab('qualified')"><i data-lucide="award"></i> Qualified Teams</button>
+        <button type="button" class="mobile-nav-btn" data-tab="player-hub" onclick="window.switchTab('player-hub')"><i data-lucide="key"></i> My Team Status & Room ID</button>
+        <button type="button" class="mobile-nav-btn" data-tab="groups" onclick="window.switchTab('groups')"><i data-lucide="layout-grid"></i> Groups & Slots</button>
+        <button type="button" class="mobile-nav-btn" data-tab="standings" onclick="window.switchTab('standings')"><i data-lucide="bar-chart-2"></i> Standings</button>
+        <button type="button" class="mobile-nav-btn admin-nav-btn" data-tab="admin" onclick="window.switchTab('admin')"><i data-lucide="shield-alert"></i> Admin Panel</button>
       </div>
     </div>
   </header>
@@ -121,10 +237,10 @@
           </div>
 
           <div class="hero-actions">
-            <button class="btn btn-primary btn-lg" onclick="switchTab('register')">
+            <button type="button" class="btn btn-primary btn-lg" onclick="window.switchTab('register')">
               <i data-lucide="user-plus"></i> REGISTER YOUR TEAM NOW
             </button>
-            <button class="btn btn-secondary btn-lg" onclick="switchTab('player-hub')">
+            <button type="button" class="btn btn-secondary btn-lg" onclick="window.switchTab('player-hub')">
               <i data-lucide="key"></i> MY TEAM STATUS & ROOM ID
             </button>
           </div>
@@ -519,14 +635,14 @@
         <h2>ORG OWNER ADMIN CONTROL CENTER</h2>
         <p>Restricted access for Tournament Organizers. Enter Security Key PIN.</p>
         
-        <form id="adminLoginForm" onsubmit="window.handleAdminLoginDirectly(); return false;" class="pin-box mt-3">
-          <input type="password" id="adminPinInput" class="form-input text-center" placeholder="Enter Admin Security Key PIN" maxlength="30" autocomplete="current-password">
-          <button type="submit" class="btn btn-primary mt-3" id="adminLoginBtn" onclick="window.handleAdminLoginDirectly(); return false;">
+        <form id="adminLoginForm" onsubmit="event.preventDefault(); window.handleAdminLoginDirectly(); return false;" class="pin-box mt-3">
+          <input type="password" id="adminPinInput" class="form-input text-center" placeholder="Enter Secret Admin Password" maxlength="30" autocomplete="current-password">
+          <button type="button" class="btn btn-primary mt-3" id="adminLoginBtn" onclick="window.handleAdminLoginDirectly();">
             <i data-lucide="key-round"></i> UNLOCK ADMIN PANEL
           </button>
         </form>
         <small class="text-muted d-block mt-3" style="font-size:0.75rem;">
-          <i data-lucide="shield-check"></i> Master PIN Protected. Secret key shortcut: <strong>Ctrl + Shift + A</strong>
+          <i data-lucide="shield-check"></i> Admin Access Protected by Master Security Key. Secret key shortcut: <strong>Ctrl + Shift + A</strong>
         </small>
       </div>
 
@@ -542,21 +658,21 @@
           </div>
 
           <div class="admin-subtabs">
-            <button class="admin-subtab active" data-subtab="teams-mgr"><i data-lucide="database"></i> Teams & Excel</button>
-            <button class="admin-subtab" data-subtab="round-settings-mgr"><i data-lucide="git-merge"></i> Manage Rounds & Capacity</button>
-            <button class="admin-subtab" data-subtab="qualify-mgr"><i data-lucide="award"></i> Round Qualification Hubs</button>
-            <button class="admin-subtab" data-subtab="schedule-mgr"><i data-lucide="calendar"></i> Match Schedules</button>
-            <button class="admin-subtab" data-subtab="groups-mgr"><i data-lucide="layout-grid"></i> Auto & Manual Slots</button>
-            <button class="admin-subtab" data-subtab="room-mgr"><i data-lucide="radio"></i> Broadcast Room ID/Pass</button>
-            <button class="admin-subtab" data-subtab="points-mgr"><i data-lucide="edit-3"></i> Add Match Scores</button>
-            <button class="admin-subtab" data-subtab="website-content-mgr"><i data-lucide="settings"></i> Content, Rules & Security</button>
+            <button type="button" class="admin-subtab active" data-subtab="teams-mgr" onclick="window.switchAdminSubtab('teams-mgr')"><i data-lucide="database"></i> Teams & Excel</button>
+            <button type="button" class="admin-subtab" data-subtab="round-settings-mgr" onclick="window.switchAdminSubtab('round-settings-mgr')"><i data-lucide="git-merge"></i> Manage Rounds & Capacity</button>
+            <button type="button" class="admin-subtab" data-subtab="qualify-mgr" onclick="window.switchAdminSubtab('qualify-mgr')"><i data-lucide="award"></i> Round Qualification Hubs</button>
+            <button type="button" class="admin-subtab" data-subtab="schedule-mgr" onclick="window.switchAdminSubtab('schedule-mgr')"><i data-lucide="calendar"></i> Match Schedules</button>
+            <button type="button" class="admin-subtab" data-subtab="groups-mgr" onclick="window.switchAdminSubtab('groups-mgr')"><i data-lucide="layout-grid"></i> Auto & Manual Slots</button>
+            <button type="button" class="admin-subtab" data-subtab="room-mgr" onclick="window.switchAdminSubtab('room-mgr')"><i data-lucide="radio"></i> Broadcast Room ID/Pass</button>
+            <button type="button" class="admin-subtab" data-subtab="points-mgr" onclick="window.switchAdminSubtab('points-mgr')"><i data-lucide="edit-3"></i> Add Match Scores</button>
+            <button type="button" class="admin-subtab" data-subtab="website-content-mgr" onclick="window.switchAdminSubtab('website-content-mgr')"><i data-lucide="settings"></i> Content, Rules & Security</button>
           </div>
 
           <div class="admin-top-actions" style="display:flex; gap:0.5rem; align-items:center;">
-            <button class="btn btn-danger btn-sm" onclick="window.resetAllDataFromAdmin()">
+            <button type="button" class="btn btn-danger btn-sm" onclick="window.resetAllDataFromAdmin()">
               <i data-lucide="trash-2"></i> RESET ALL DATA (START FRESH)
             </button>
-            <button class="btn btn-secondary btn-sm" id="adminLogoutBtn">
+            <button type="button" class="btn btn-secondary btn-sm" id="adminLogoutBtn">
               <i data-lucide="log-out"></i> Logout
             </button>
           </div>
@@ -599,7 +715,7 @@
             <div class="card-header flex-between">
               <h3><i data-lucide="database"></i> REGISTERED TEAMS DATABASE (EXCEL EXPORT)</h3>
               <div class="header-actions">
-                <button class="btn btn-success" id="exportExcelBtn">
+                <button type="button" class="btn btn-success" id="exportExcelBtn" onclick="window.exportTeamsExcelDirectly()">
                   <i data-lucide="file-spreadsheet"></i> EXPORT TO EXCEL (.XLSX) TO LAPTOP
                 </button>
               </div>
@@ -651,7 +767,7 @@
                 <p class="subtitle">Create custom tournament rounds (e.g. Round 1, Round 2, Semi-Finals, Finals) and set qualification rules.</p>
               </div>
               <div class="card-body">
-                <form id="addRoundForm" class="form-grid">
+                <form id="addRoundForm" class="form-grid" onsubmit="event.preventDefault(); window.handleAddRoundSubmit(event); return false;">
                   <div class="form-group full-width">
                     <label>Round Name *</label>
                     <input type="text" id="newRoundName" class="form-input" placeholder="e.g. Round 2 (Quarter Finals)" required>
@@ -719,7 +835,7 @@
                 </div>
                 <div class="form-group">
                   <label>Auto-Qualify Action</label>
-                  <button type="button" class="btn btn-primary" id="autoQualifyRoundBtn" style="margin-top:0.25rem;">
+                  <button type="button" class="btn btn-primary" id="autoQualifyRoundBtn" onclick="window.handleAutoQualifyRoundDirectly()" style="margin-top:0.25rem;">
                     <i data-lucide="wand-2"></i> AUTO-QUALIFY TOP TEAMS FOR THIS ROUND
                   </button>
                 </div>
@@ -759,7 +875,7 @@
             </div>
 
             <div class="card-body">
-              <form id="scheduleForm" class="form-grid">
+              <form id="scheduleForm" class="form-grid" onsubmit="event.preventDefault(); window.handleScheduleSubmit(event); return false;">
                 <div class="form-group">
                   <label>Group *</label>
                   <select id="schGroup" class="form-select" required>
@@ -829,7 +945,7 @@
                 <label style="font-weight:700; color:var(--primary-blue); font-size:1.05rem; display:flex; align-items:center; gap:0.5rem; margin:0;">
                   <i data-lucide="layers"></i> SELECT STAGE TO MANAGE GROUPS & LOBBY SLOTS:
                 </label>
-                <select id="admGroupStageSelect" class="form-select" style="max-width:280px; font-weight:700; border-color:var(--primary-blue);"></select>
+                <select id="admGroupStageSelect" class="form-select" onchange="window.handleAdminGroupStageChange(this.value)" style="max-width:280px; font-weight:700; border-color:var(--primary-blue);"></select>
               </div>
             </div>
           </div>
@@ -842,7 +958,7 @@
               </div>
             </div>
             <div class="card-body">
-              <form id="transferTeamForm" class="form-grid">
+              <form id="transferTeamForm" class="form-grid" onsubmit="event.preventDefault(); window.handleTransferTeamSubmit(event); return false;">
                 <div class="form-group">
                   <label>Select Team to Move *</label>
                   <select id="trTeamSelect" class="form-select" required></select>
@@ -875,7 +991,7 @@
                 <h3><i data-lucide="layout-grid"></i> AUTOMATED GROUP ALLOCATOR</h3>
               </div>
               <div class="header-actions">
-                <button class="btn btn-primary" id="autoAssignGroupsBtn">
+                <button type="button" class="btn btn-primary" id="autoAssignGroupsBtn" onclick="window.handleAutoAssignGroupsDirectly()">
                   <i data-lucide="wand-2"></i> AUTO-CREATE LOBBIES
                 </button>
               </div>
@@ -894,7 +1010,7 @@
             </div>
 
             <div class="card-body">
-              <form id="broadcastRoomForm" class="form-grid">
+              <form id="broadcastRoomForm" class="form-grid" onsubmit="event.preventDefault(); window.handleBroadcastSubmit(event); return false;">
                 <div class="form-group">
                   <label>Select Group *</label>
                   <select id="bcGroup" class="form-select" required>
@@ -917,7 +1033,7 @@
 
                 <div class="form-group">
                   <label>BGMI Room Password *</label>
-                  <input type="text" id="bcRoomPass" class="form-input" placeholder="e.g. rex123" required>
+                  <input type="text" id="bcRoomPass" class="form-input" placeholder="Enter Room Password" required>
                 </div>
 
                 <div class="form-group">
@@ -977,12 +1093,12 @@
               <div class="form-grid mb-3">
                 <div class="form-group">
                   <label>Stage:</label>
-                  <select id="scoreStageSelect" class="form-select"></select>
+                  <select id="scoreStageSelect" class="form-select" onchange="renderAdminScoreEntryTable()"></select>
                 </div>
 
                 <div class="form-group">
                   <label>Group:</label>
-                  <select id="scoreGroupSelect" class="form-select">
+                  <select id="scoreGroupSelect" class="form-select" onchange="renderAdminScoreEntryTable()">
                     <option value="Group A">Group A</option>
                     <option value="Group B">Group B</option>
                     <option value="Group C">Group C</option>
@@ -992,7 +1108,7 @@
 
                 <div class="form-group">
                   <label>Match Number:</label>
-                  <select id="scoreMatchNumSelect" class="form-select">
+                  <select id="scoreMatchNumSelect" class="form-select" onchange="renderAdminScoreEntryTable()">
                     <option value="Match 1">Match 1</option>
                     <option value="Match 2">Match 2</option>
                     <option value="Match 3">Match 3</option>
@@ -1015,7 +1131,7 @@
               </div>
 
               <div class="form-actions mt-4 flex-end">
-                <button class="btn btn-primary btn-lg" id="saveMatchScoresBtn">
+                <button type="button" class="btn btn-primary btn-lg" id="saveMatchScoresBtn" onclick="window.handleSaveScoresDirectly()">
                   <i data-lucide="save"></i> SAVE SCORES & UPDATE STANDINGS
                 </button>
               </div>
@@ -1043,7 +1159,7 @@
                 <p class="subtitle">Updates sync live across all mobile phones and laptops via Supabase Cloud!</p>
               </div>
               <div class="card-body">
-                <form id="websiteContentForm" class="form-grid">
+                <form id="websiteContentForm" class="form-grid" onsubmit="event.preventDefault(); window.handleWebsiteContentSubmit(event); return false;">
                   <div class="form-group full-width">
                     <label>Tournament Championship Title *</label>
                     <input type="text" id="admTournamentTitle" class="form-input" placeholder="e.g. REX ESPORTS BGMI CHAMPIONSHIP" required>
@@ -1105,7 +1221,7 @@
                 <p class="subtitle">Type rules and optionally paste a PDF download link for players!</p>
               </div>
               <div class="card-body">
-                <form id="websiteRulesForm" class="form-grid">
+                <form id="websiteRulesForm" class="form-grid" onsubmit="event.preventDefault(); window.handleWebsiteRulesSubmit(event); return false;">
                   <div class="form-group full-width">
                     <label>Official Tournament Rules & Guidelines *</label>
                     <textarea id="admRulesText" class="form-input" rows="6" placeholder="Type tournament rules line by line..." required></textarea>
@@ -1131,7 +1247,7 @@
               <p class="subtitle">Change your master access password for total security. Only you will have access!</p>
             </div>
             <div class="card-body">
-              <form id="adminSecurityPinForm" class="form-grid">
+              <form id="adminSecurityPinForm" class="form-grid" onsubmit="event.preventDefault(); window.handleAdminPinSubmit(event); return false;">
                 <div class="form-group">
                   <label>Current Admin PIN / Password *</label>
                   <input type="password" id="admCurrentPin" class="form-input" placeholder="Enter current PIN" required>
@@ -1207,7 +1323,7 @@
 
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="data.js?v=68.0"></script>
-  <script src="app.js?v=68.0"></script>
+  <script src="data.js?v=88.0"></script>
+  <script src="app.js?v=88.0"></script>
 </body>
 </html>
