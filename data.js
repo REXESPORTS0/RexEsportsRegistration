@@ -116,20 +116,51 @@ class DataStore {
 
   load() {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        parsed.settings = Object.assign({}, DEFAULT_SETTINGS, parsed.settings || {});
-        parsed.teams = parsed.teams || [];
-        parsed.rounds = parsed.rounds || INITIAL_ROUNDS;
-        parsed.schedules = parsed.schedules || [];
-        parsed.broadcasts = parsed.broadcasts || [];
-        parsed.matchScores = parsed.matchScores || [];
-        parsed.deletedTeamCodes = parsed.deletedTeamCodes || [];
-        parsed.deletedScheduleIds = parsed.deletedScheduleIds || [];
-        parsed.deletedBroadcastIds = parsed.deletedBroadcastIds || [];
-        parsed.deletedRoundIds = parsed.deletedRoundIds || [];
-        return parsed;
+      const keysToTry = [
+        STORAGE_KEY,
+        'REX_BGMI_TOURNAMENT_DATA_V7',
+        'REX_BGMI_TOURNAMENT_DATA_V6',
+        'REX_BGMI_TOURNAMENT_DATA_V5',
+        'REX_BGMI_TOURNAMENT_DATA_V4',
+        'REX_BGMI_TOURNAMENT_DATA_V3',
+        'REX_BGMI_TOURNAMENT_DATA_V2',
+        'REX_BGMI_TOURNAMENT_DATA_V1',
+        'REX_BGMI_TOURNAMENT_DATA'
+      ];
+
+      let bestParsed = null;
+      for (const key of keysToTry) {
+        const saved = localStorage.getItem(key);
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (parsed && typeof parsed === 'object') {
+              if (!bestParsed) {
+                bestParsed = parsed;
+              } else {
+                if ((!bestParsed.teams || bestParsed.teams.length === 0) && parsed.teams && parsed.teams.length > 0) {
+                  bestParsed = parsed;
+                }
+              }
+            }
+          } catch(err) {}
+        }
+      }
+
+      if (bestParsed) {
+        bestParsed.settings = Object.assign({}, DEFAULT_SETTINGS, bestParsed.settings || {});
+        bestParsed.teams = bestParsed.teams || [];
+        bestParsed.rounds = bestParsed.rounds || INITIAL_ROUNDS;
+        bestParsed.schedules = bestParsed.schedules || [];
+        bestParsed.broadcasts = bestParsed.broadcasts || [];
+        bestParsed.matchScores = bestParsed.matchScores || [];
+        bestParsed.deletedTeamCodes = bestParsed.deletedTeamCodes || [];
+        bestParsed.deletedScheduleIds = bestParsed.deletedScheduleIds || [];
+        bestParsed.deletedBroadcastIds = bestParsed.deletedBroadcastIds || [];
+        bestParsed.deletedRoundIds = bestParsed.deletedRoundIds || [];
+
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(bestParsed)); } catch(e){}
+        return bestParsed;
       }
     } catch (e) {
       console.warn('LocalStorage load error:', e);
@@ -149,7 +180,6 @@ class DataStore {
   async syncToSupabase(team) {
     if (!supabaseClient) return false;
     try {
-      // Primary payload (lowercase keys for standard PostgreSQL columns)
       const payloadLower = {
         code: team.code,
         teamname: team.teamName,
@@ -164,7 +194,6 @@ class DataStore {
         players: team.players
       };
 
-      // Fallback payload (camelCase keys if table was created with quoted identifiers)
       const payloadCamel = {
         code: team.code,
         teamName: team.teamName,
@@ -179,38 +208,20 @@ class DataStore {
         players: team.players
       };
 
-      // Strategy 1: Try upsert with lowercase keys
       let res = await supabaseClient.from('teams').upsert([payloadLower], { onConflict: 'code' });
-      if (!res.error) {
-        console.log('⚡ Team successfully synced to Supabase Cloud (Upsert Lowercase):', team.code);
-        return true;
-      }
+      if (!res.error) return true;
 
-      // Strategy 2: Try direct insert with lowercase keys (if onConflict constraint is missing)
       res = await supabaseClient.from('teams').insert([payloadLower]);
-      if (!res.error) {
-        console.log('⚡ Team successfully synced to Supabase Cloud (Insert Lowercase):', team.code);
-        return true;
-      }
+      if (!res.error) return true;
 
-      // Strategy 3: Try upsert with camelCase keys
       res = await supabaseClient.from('teams').upsert([payloadCamel], { onConflict: 'code' });
-      if (!res.error) {
-        console.log('⚡ Team successfully synced to Supabase Cloud (Upsert Camel):', team.code);
-        return true;
-      }
+      if (!res.error) return true;
 
-      // Strategy 4: Try insert with camelCase keys
       res = await supabaseClient.from('teams').insert([payloadCamel]);
-      if (!res.error) {
-        console.log('⚡ Team successfully synced to Supabase Cloud (Insert Camel):', team.code);
-        return true;
-      }
+      if (!res.error) return true;
 
-      console.error('❌ Supabase Team Sync Error:', res.error?.message);
       return false;
     } catch (e) {
-      console.error('Supabase Exception during team sync:', e);
       return false;
     }
   }
@@ -236,21 +247,61 @@ class DataStore {
           return true;
         });
 
-        this.state.teams = validCloudTeams.map(cloudTeam => ({
-          code: cloudTeam.code,
-          teamName: cloudTeam.teamName || cloudTeam.teamname || 'Team',
-          tag: cloudTeam.tag || '',
-          logo: cloudTeam.logo || '👑',
-          capName: cloudTeam.capName || cloudTeam.capname || 'Captain',
-          capPhone: cloudTeam.capPhone || cloudTeam.capphone || '',
-          capEmail: cloudTeam.capEmail || cloudTeam.capemail || '',
-          group: cloudTeam.group || 'Group A',
-          slot: parseInt(cloudTeam.slot) || 1,
-          status: cloudTeam.status || 'Approved',
-          qualificationStatus: cloudTeam.qualificationStatus || cloudTeam.qualificationstatus || 'Round 1 Competitor',
-          currentStage: cloudTeam.currentStage || cloudTeam.currentstage || 'round1',
-          players: typeof cloudTeam.players === 'string' ? JSON.parse(cloudTeam.players) : (cloudTeam.players || [])
-        }));
+        if (validCloudTeams.length > 0) {
+          const mergedTeams = validCloudTeams.map(cloudTeam => {
+            const existingLocal = (this.state.teams || []).find(t => t.code && t.code.toUpperCase() === cloudTeam.code.toUpperCase());
+
+            let parsedStageGroups = null;
+            if (cloudTeam.stageGroups || cloudTeam.stagegroups) {
+              try {
+                const raw = cloudTeam.stageGroups || cloudTeam.stagegroups;
+                parsedStageGroups = typeof raw === 'string' ? JSON.parse(raw) : raw;
+              } catch(e) {}
+            }
+
+            let parsedQualifiedRounds = null;
+            if (cloudTeam.qualifiedRounds || cloudTeam.qualifiedrounds) {
+              try {
+                const raw = cloudTeam.qualifiedRounds || cloudTeam.qualifiedrounds;
+                parsedQualifiedRounds = typeof raw === 'string' ? JSON.parse(raw) : raw;
+              } catch(e) {}
+            }
+
+            return {
+              code: cloudTeam.code,
+              teamName: cloudTeam.teamName || cloudTeam.teamname || existingLocal?.teamName || 'Team',
+              tag: cloudTeam.tag || existingLocal?.tag || '',
+              logo: cloudTeam.logo || cloudTeam.avatar || existingLocal?.logo || '🦖',
+              capName: cloudTeam.capName || cloudTeam.capname || existingLocal?.capName || 'Captain',
+              capPhone: cloudTeam.capPhone || cloudTeam.capphone || existingLocal?.capPhone || '',
+              capEmail: cloudTeam.capEmail || cloudTeam.capemail || existingLocal?.capEmail || '',
+              group: cloudTeam.group || existingLocal?.group || 'Group A',
+              slot: parseInt(cloudTeam.slot || existingLocal?.slot) || 1,
+              status: cloudTeam.status || existingLocal?.status || 'Approved',
+              qualificationStatus: cloudTeam.qualificationStatus || cloudTeam.qualificationstatus || existingLocal?.qualificationStatus || 'Round 1 Competitor',
+              currentStage: cloudTeam.currentStage || cloudTeam.currentstage || existingLocal?.currentStage || 'round1',
+              qualifiedRounds: parsedQualifiedRounds || existingLocal?.qualifiedRounds || ['round1'],
+              stageGroups: parsedStageGroups || existingLocal?.stageGroups || { round1: { group: cloudTeam.group || 'Group A', slot: parseInt(cloudTeam.slot) || 1 } },
+              players: typeof cloudTeam.players === 'string' ? JSON.parse(cloudTeam.players) : (cloudTeam.players || existingLocal?.players || [])
+            };
+          });
+
+          (this.state.teams || []).forEach(localT => {
+            if (localT && localT.code && !deletedCodes.includes(localT.code.toUpperCase()) && !mergedTeams.some(m => m.code.toUpperCase() === localT.code.toUpperCase())) {
+              mergedTeams.push(localT);
+              this.syncToSupabase(localT);
+            }
+          });
+
+          this.state.teams = mergedTeams;
+          this.save();
+        } else if ((this.state.teams || []).length > 0) {
+          this.state.teams.forEach(localT => {
+            if (localT && localT.code && !deletedCodes.includes(localT.code.toUpperCase())) {
+              this.syncToSupabase(localT);
+            }
+          });
+        }
       } else if (teamsErr) {
         console.warn('Teams fetch warning:', teamsErr.message);
       }
@@ -641,6 +692,10 @@ class DataStore {
       newTeam.slot = (inGrp.length % cap) + 1;
     }
 
+    newTeam.stageGroups = {
+      round1: { group: newTeam.group, slot: newTeam.slot }
+    };
+
     this.state.teams.unshift(newTeam);
     this.save();
 
@@ -648,6 +703,17 @@ class DataStore {
     this.syncToSupabase(newTeam);
 
     return newTeam;
+  }
+
+  getTeamStageGroupAndSlot(team, stageId = 'round1') {
+    if (!team) return { group: 'Group A', slot: 1 };
+    if (team.stageGroups && team.stageGroups[stageId]) {
+      return team.stageGroups[stageId];
+    }
+    return {
+      group: team.group || 'Group A',
+      slot: team.slot || 1
+    };
   }
 
   transferTeamGroup(code, newGroup, newSlot) {
@@ -731,20 +797,67 @@ class DataStore {
     }
   }
 
-  autoAllocateGroups() {
-    const cap = this.getActiveLobbyCapacity();
-    const approved = this.getTeams().filter(t => t.status === 'Approved');
+  transferTeamGroupForStage(code, stageId = 'round1', newGroup, newSlot) {
+    const team = this.state.teams.find(t => t.code === code);
+    if (team) {
+      if (!team.stageGroups) team.stageGroups = {};
+      team.stageGroups[stageId] = {
+        group: newGroup,
+        slot: parseInt(newSlot) || 1
+      };
+      if (stageId === 'round1' || stageId === this.state.activeStageId) {
+        team.group = newGroup;
+        team.slot = parseInt(newSlot) || team.slot;
+      }
+      this.save();
+      this.syncToSupabase(team);
+    }
+  }
 
-    approved.forEach((team, idx) => {
+  autoAllocateGroupsForStage(stageId = 'round1') {
+    const roundObj = this.getRoundById(stageId);
+    const cap = roundObj ? (parseInt(roundObj.lobbyCapacity) || 16) : 16;
+    const stageTeams = this.getTeamsForRound(stageId);
+
+    stageTeams.forEach((team, idx) => {
       const gIdx = Math.floor(idx / cap);
       const sIdx = (idx % cap) + 1;
-      team.group = this.getGroupNameFromIndex(gIdx);
-      team.slot = sIdx;
+      const groupName = this.getGroupNameFromIndex(gIdx);
+
+      if (!team.stageGroups) team.stageGroups = {};
+      team.stageGroups[stageId] = { group: groupName, slot: sIdx };
+
+      if (stageId === 'round1' || stageId === this.state.activeStageId) {
+        team.group = groupName;
+        team.slot = sIdx;
+      }
       this.syncToSupabase(team);
     });
 
     this.save();
     window.dispatchEvent(new CustomEvent('supabaseSyncComplete'));
+  }
+
+  getAllGroupsForStage(stageId = 'round1') {
+    const stageTeams = this.getTeamsForRound(stageId);
+    const roundObj = this.getRoundById(stageId);
+    const cap = roundObj ? (parseInt(roundObj.lobbyCapacity) || 16) : 16;
+    const minGroupsNeeded = Math.max(4, Math.ceil(stageTeams.length / cap));
+
+    const groupSet = new Set();
+    for (let i = 0; i < minGroupsNeeded; i++) {
+      groupSet.add(this.getGroupNameFromIndex(i));
+    }
+    stageTeams.forEach(t => {
+      const sg = this.getTeamStageGroupAndSlot(t, stageId);
+      if (sg && sg.group) groupSet.add(sg.group);
+    });
+
+    return Array.from(groupSet);
+  }
+
+  autoAllocateGroups() {
+    this.autoAllocateGroupsForStage(this.state.activeStageId || 'round1');
   }
 
   getTeamsForRound(roundId) {

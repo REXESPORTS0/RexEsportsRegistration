@@ -223,7 +223,7 @@ function updateScoreMatchOptions() {
 
 function populateDynamicRoundDropdowns() {
   const rounds = window.store ? window.store.getRounds() : [];
-  const ids = ['standingsStageSelect', 'schStage', 'bcStage', 'scoreStageSelect'];
+  const ids = ['standingsStageSelect', 'schStage', 'bcStage', 'scoreStageSelect', 'admGroupStageSelect'];
 
   ids.forEach(id => {
     const el = document.getElementById(id);
@@ -259,6 +259,15 @@ function populateDynamicRoundDropdowns() {
   });
 
   updateScoreMatchOptions();
+
+  const admGroupStageEl = document.getElementById('admGroupStageSelect');
+  if (admGroupStageEl) {
+    admGroupStageEl.onchange = () => {
+      const selStage = admGroupStageEl.value;
+      populateTeamTransferDropdown(selStage);
+      renderAdminGroupsGrid(selStage);
+    };
+  }
 
   const scoreStageEl = document.getElementById('scoreStageSelect');
   if (scoreStageEl) {
@@ -866,7 +875,11 @@ function initAdminPanel() {
       if (targetPane === 'round-settings-mgr') renderAdminRoundsTable();
       if (targetPane === 'qualify-mgr') { initAdminQualifyRoundSubtabs(); }
       if (targetPane === 'schedule-mgr') renderAdminSchedulesTable();
-      if (targetPane === 'groups-mgr') { populateTeamTransferDropdown(); renderAdminGroupsGrid(); }
+      if (targetPane === 'groups-mgr') {
+        const selStage = document.getElementById('admGroupStageSelect')?.value || 'round1';
+        populateTeamTransferDropdown(selStage);
+        renderAdminGroupsGrid(selStage);
+      }
       if (targetPane === 'room-mgr') renderAdminBroadcastsTable();
       if (targetPane === 'points-mgr') renderAdminScoreEntryTable();
       if (targetPane === 'website-content-mgr') renderAdminWebsiteContentForm();
@@ -922,13 +935,17 @@ function initAdminPanel() {
   if (transferForm) {
     transferForm.addEventListener('submit', (e) => {
       e.preventDefault();
+      const currentStage = document.getElementById('admGroupStageSelect')?.value || 'round1';
       const code = document.getElementById('trTeamSelect').value;
       const targetGroup = document.getElementById('trTargetGroup').value;
       const targetSlot = document.getElementById('trTargetSlot').value;
 
-      window.store.transferTeamGroup(code, targetGroup, targetSlot);
-      showToast(`Team transferred to ${targetGroup} - Slot #${targetSlot}!`, 'success');
-      renderAdminGroupsGrid();
+      if (code && targetGroup && targetSlot) {
+        window.store.transferTeamGroupForStage(code, currentStage, targetGroup, targetSlot);
+        showToast(`Team transferred to ${targetGroup} - Slot #${targetSlot} for stage ${currentStage.toUpperCase()}!`, 'success');
+        renderAdminGroupsGrid(currentStage);
+        populateTeamTransferDropdown(currentStage);
+      }
     });
   }
 
@@ -952,10 +969,13 @@ function initAdminPanel() {
   const autoAssignBtn = document.getElementById('autoAssignGroupsBtn');
   if (autoAssignBtn) {
     autoAssignBtn.addEventListener('click', () => {
-      window.store.autoAllocateGroups();
-      const cap = window.store.getActiveLobbyCapacity();
-      showToast(`Automated ${cap}-slot lobby groups assigned!`, 'success');
-      renderAdminGroupsGrid();
+      const currentStage = document.getElementById('admGroupStageSelect')?.value || 'round1';
+      window.store.autoAllocateGroupsForStage(currentStage);
+      const rndObj = window.store.getRoundById(currentStage);
+      const cap = rndObj ? rndObj.lobbyCapacity : 16;
+      showToast(`Automated ${cap}-slot lobby groups assigned for ${currentStage.toUpperCase()}!`, 'success');
+      renderAdminGroupsGrid(currentStage);
+      populateTeamTransferDropdown(currentStage);
       renderAdminTeamsTable();
     });
   }
@@ -1136,8 +1156,9 @@ function renderAdminDashboard() {
   renderAdminRoundsTable();
   initAdminQualifyRoundSubtabs();
   renderAdminSchedulesTable();
-  populateTeamTransferDropdown();
-  renderAdminGroupsGrid();
+  const selStage = document.getElementById('admGroupStageSelect')?.value || 'round1';
+  populateTeamTransferDropdown(selStage);
+  renderAdminGroupsGrid(selStage);
   renderAdminBroadcastsTable();
   renderAdminScoreEntryTable();
   renderAdminWebsiteContentForm();
@@ -1386,19 +1407,30 @@ window.deleteRoundFromAdmin = async function(id) {
   }
 };
 
-function populateTeamTransferDropdown() {
+function populateTeamTransferDropdown(stageId) {
   const select = document.getElementById('trTeamSelect');
   if (!select) return;
 
-  const teams = window.store.getTeams().filter(t => t.status === 'Approved');
-  select.innerHTML = teams.map(t => `<option value="${t.code}">${t.teamName} (${t.code} - Currently: ${t.group} Slot #${t.slot})</option>`).join('');
+  const currentStage = stageId || document.getElementById('admGroupStageSelect')?.value || 'round1';
+  const teams = window.store ? window.store.getTeamsForRound(currentStage) : [];
+
+  if (teams.length === 0) {
+    select.innerHTML = `<option value="">No teams available for ${currentStage.toUpperCase()}</option>`;
+    return;
+  }
+
+  select.innerHTML = teams.map(t => {
+    const sg = window.store ? window.store.getTeamStageGroupAndSlot(t, currentStage) : { group: t.group, slot: t.slot };
+    return `<option value="${t.code}">${t.teamName} (${t.code} - Currently: ${sg.group} Slot #${sg.slot})</option>`;
+  }).join('');
 }
 
 window.deleteTeamFromAdmin = async function(code) {
   if (confirm(`Delete team ${code}?`)) {
     if (window.store) await window.store.deleteTeam(code);
+    const selStage = document.getElementById('admGroupStageSelect')?.value || 'round1';
     renderAdminTeamsTable();
-    renderAdminGroupsGrid();
+    renderAdminGroupsGrid(selStage);
     renderConfirmedTeamsGallery();
     renderAdminDashboard();
     showToast('Team deleted permanently!', 'info');
@@ -1437,20 +1469,26 @@ window.deleteScheduleFromAdmin = async function(id) {
   }
 };
 
-function renderAdminGroupsGrid() {
+function renderAdminGroupsGrid(stageId) {
   const container = document.getElementById('adminGroupsGrid');
   if (!container) return;
 
-  const capacity = window.store.getActiveLobbyCapacity();
-  const groups = window.store ? window.store.getAllGroups() : ['Group A', 'Group B', 'Group C', 'Group D'];
-  const allTeams = window.store.getTeams().filter(t => t.status === 'Approved');
+  const currentStage = stageId || document.getElementById('admGroupStageSelect')?.value || 'round1';
+  const roundObj = window.store ? window.store.getRoundById(currentStage) : null;
+  const capacity = roundObj ? (parseInt(roundObj.lobbyCapacity) || 16) : (window.store ? window.store.getActiveLobbyCapacity() : 16);
+  const groups = window.store ? window.store.getAllGroupsForStage(currentStage) : ['Group A', 'Group B', 'Group C', 'Group D'];
+  const stageTeams = window.store ? window.store.getTeamsForRound(currentStage) : [];
 
   container.innerHTML = groups.map(gName => {
-    const groupTeams = allTeams.filter(t => t.group === gName);
+    const groupTeams = stageTeams.filter(t => {
+      const sg = window.store ? window.store.getTeamStageGroupAndSlot(t, currentStage) : { group: t.group, slot: t.slot };
+      return sg.group === gName;
+    });
+
     return `
       <div class="card mb-3">
         <div class="flex-between mb-2">
-          <h4>${gName} (${groupTeams.length} / ${capacity} Slots)</h4>
+          <h4>${gName} (${groupTeams.length} / ${capacity} Slots) - <span style="color:var(--primary-blue); font-size:0.9rem; font-weight:700;">${roundObj ? roundObj.name : currentStage.toUpperCase()}</span></h4>
         </div>
         <div class="table-responsive">
           <table class="styled-table compact">
@@ -1460,7 +1498,10 @@ function renderAdminGroupsGrid() {
             <tbody>
               ${Array.from({ length: capacity }, (_, i) => {
                 const sNum = i + 1;
-                const tm = groupTeams.find(t => t.slot === sNum);
+                const tm = groupTeams.find(t => {
+                  const sg = window.store ? window.store.getTeamStageGroupAndSlot(t, currentStage) : { group: t.group, slot: t.slot };
+                  return sg.slot === sNum;
+                });
                 return `
                   <tr>
                     <td><strong>#${sNum}</strong></td>

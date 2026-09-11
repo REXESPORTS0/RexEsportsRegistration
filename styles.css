@@ -1328,4 +1328,71 @@ body.light-blue-theme {
     line-height: 1.4 !important;
     margin: 0 !important;
   }
+
+  /* Admin Panel Mobile UI Navigation & Control Enhancements */
+  .admin-subtabs {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 0.4rem !important;
+    padding-bottom: 0.5rem !important;
+    min-height: 48px !important;
+  }
+  .admin-subtab {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    min-height: 42px !important;
+    padding: 0.5rem 0.85rem !important;
+    font-size: 0.82rem !important;
+    touch-action: manipulation !important;
+  }
+  .admin-subpane {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  .grid-2col, .grid-3col, .grid-4col {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .admin-subpane .card {
+    padding: 1.1rem !important;
+    margin-bottom: 1.25rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-subpane .table-responsive {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x !important;
+  }
+
+  .form-input, .form-select, select, input[type="text"], input[type="number"], input[type="datetime-local"] {
+    min-height: 46px !important;
+    font-size: 0.92rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .btn {
+    min-height: 46px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    touch-action: manipulation !important;
+  }
+  .btn-sm {
+    min-height: 38px !important;
+    padding: 0.35rem 0.75rem !important;
+  }
 }
