@@ -191,7 +191,11 @@ class DataStore {
         slot: team.slot || 1,
         status: team.status || 'Approved',
         qualificationstatus: team.qualificationStatus || 'Round 1 Competitor',
-        players: team.players
+        currentstage: team.currentStage || 'round1',
+        qualifiedrounds: JSON.stringify(team.qualifiedRounds || ['round1']),
+        stagestatuses: JSON.stringify(team.stageStatuses || {}),
+        stagegroups: JSON.stringify(team.stageGroups || {}),
+        players: typeof team.players === 'object' ? JSON.stringify(team.players) : team.players
       };
 
       const payloadCamel = {
@@ -205,19 +209,39 @@ class DataStore {
         slot: team.slot || 1,
         status: team.status || 'Approved',
         qualificationStatus: team.qualificationStatus || 'Round 1 Competitor',
-        players: team.players
+        currentStage: team.currentStage || 'round1',
+        qualifiedRounds: JSON.stringify(team.qualifiedRounds || ['round1']),
+        stageStatuses: JSON.stringify(team.stageStatuses || {}),
+        stageGroups: JSON.stringify(team.stageGroups || {}),
+        players: typeof team.players === 'object' ? JSON.stringify(team.players) : team.players
+      };
+
+      const fallbackLower = {
+        code: team.code, teamname: team.teamName, tag: team.tag || '',
+        capname: team.capName, capphone: team.capPhone, capemail: team.capEmail,
+        group: team.group || 'Group A', slot: team.slot || 1,
+        status: team.status || 'Approved', qualificationstatus: team.qualificationStatus || 'Round 1 Competitor',
+        players: typeof team.players === 'object' ? JSON.stringify(team.players) : team.players
+      };
+
+      const fallbackCamel = {
+        code: team.code, teamName: team.teamName, tag: team.tag || '',
+        capName: team.capName, capPhone: team.capPhone, capEmail: team.capEmail,
+        group: team.group || 'Group A', slot: team.slot || 1,
+        status: team.status || 'Approved', qualificationStatus: team.qualificationStatus || 'Round 1 Competitor',
+        players: typeof team.players === 'object' ? JSON.stringify(team.players) : team.players
       };
 
       let res = await supabaseClient.from('teams').upsert([payloadLower], { onConflict: 'code' });
       if (!res.error) return true;
 
-      res = await supabaseClient.from('teams').insert([payloadLower]);
-      if (!res.error) return true;
-
       res = await supabaseClient.from('teams').upsert([payloadCamel], { onConflict: 'code' });
       if (!res.error) return true;
 
-      res = await supabaseClient.from('teams').insert([payloadCamel]);
+      res = await supabaseClient.from('teams').upsert([fallbackLower], { onConflict: 'code' });
+      if (!res.error) return true;
+
+      res = await supabaseClient.from('teams').upsert([fallbackCamel], { onConflict: 'code' });
       if (!res.error) return true;
 
       return false;
@@ -267,6 +291,43 @@ class DataStore {
               } catch(e) {}
             }
 
+            const qualStatusStr = (cloudTeam.qualificationStatus || cloudTeam.qualificationstatus || existingLocal?.qualificationStatus || '').toString();
+
+            // Dynamic cross-device reconstruction of qualifiedRounds from qualificationstatus string
+            if (!parsedQualifiedRounds || !Array.isArray(parsedQualifiedRounds) || parsedQualifiedRounds.length === 0) {
+              const rounds = this.getRounds();
+              const matchedRnd = rounds.find(r => qualStatusStr.toLowerCase().includes(r.name.toLowerCase()) || qualStatusStr.toLowerCase().includes(r.id.toLowerCase()));
+              if (matchedRnd) {
+                const targetIdx = rounds.findIndex(r => r.id === matchedRnd.id);
+                if (targetIdx >= 0) {
+                  parsedQualifiedRounds = rounds.slice(0, targetIdx + 1).map(r => r.id);
+                }
+              } else if (qualStatusStr.toLowerCase().includes('round 2')) {
+                parsedQualifiedRounds = ['round1', 'round2'];
+              } else if (qualStatusStr.toLowerCase().includes('final')) {
+                parsedQualifiedRounds = rounds.map(r => r.id);
+              }
+            }
+
+            if (!parsedQualifiedRounds || !Array.isArray(parsedQualifiedRounds) || parsedQualifiedRounds.length === 0) {
+              parsedQualifiedRounds = existingLocal?.qualifiedRounds || ['round1'];
+            }
+
+            let parsedStageStatuses = null;
+            if (cloudTeam.stageStatuses || cloudTeam.stagestatuses) {
+              try {
+                const raw = cloudTeam.stageStatuses || cloudTeam.stagestatuses;
+                parsedStageStatuses = typeof raw === 'string' ? JSON.parse(raw) : raw;
+              } catch(e) {}
+            }
+            if (!parsedStageStatuses || typeof parsedStageStatuses !== 'object') {
+              parsedStageStatuses = Object.assign({}, existingLocal?.stageStatuses || {});
+            }
+            if (qualStatusStr) {
+              const curStg = cloudTeam.currentStage || cloudTeam.currentstage || (parsedQualifiedRounds[parsedQualifiedRounds.length - 1] || 'round1');
+              parsedStageStatuses[curStg] = qualStatusStr;
+            }
+
             return {
               code: cloudTeam.code,
               teamName: cloudTeam.teamName || cloudTeam.teamname || existingLocal?.teamName || 'Team',
@@ -278,9 +339,10 @@ class DataStore {
               group: cloudTeam.group || existingLocal?.group || 'Group A',
               slot: parseInt(cloudTeam.slot || existingLocal?.slot) || 1,
               status: cloudTeam.status || existingLocal?.status || 'Approved',
-              qualificationStatus: cloudTeam.qualificationStatus || cloudTeam.qualificationstatus || existingLocal?.qualificationStatus || 'Round 1 Competitor',
-              currentStage: cloudTeam.currentStage || cloudTeam.currentstage || existingLocal?.currentStage || 'round1',
-              qualifiedRounds: parsedQualifiedRounds || existingLocal?.qualifiedRounds || ['round1'],
+              qualificationStatus: qualStatusStr || 'Round 1 Competitor',
+              currentStage: cloudTeam.currentStage || cloudTeam.currentstage || (parsedQualifiedRounds[parsedQualifiedRounds.length - 1] || 'round1'),
+              qualifiedRounds: parsedQualifiedRounds,
+              stageStatuses: parsedStageStatuses,
               stageGroups: parsedStageGroups || existingLocal?.stageGroups || { round1: { group: cloudTeam.group || 'Group A', slot: parseInt(cloudTeam.slot) || 1 } },
               players: typeof cloudTeam.players === 'string' ? JSON.parse(cloudTeam.players) : (cloudTeam.players || existingLocal?.players || [])
             };
