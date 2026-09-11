@@ -272,8 +272,8 @@ class DataStore {
         });
 
         if (validCloudTeams.length > 0) {
-          const mergedTeams = validCloudTeams.map(cloudTeam => {
-            const existingLocal = (this.state.teams || []).find(t => t.code && t.code.toUpperCase() === cloudTeam.code.toUpperCase());
+            const cloudGroup = cloudTeam.group || cloudTeam.groupname || existingLocal?.group || 'Group A';
+            const cloudSlot = parseInt(cloudTeam.slot || existingLocal?.slot) || 1;
 
             let parsedStageGroups = null;
             if (cloudTeam.stageGroups || cloudTeam.stagegroups) {
@@ -282,6 +282,13 @@ class DataStore {
                 parsedStageGroups = typeof raw === 'string' ? JSON.parse(raw) : raw;
               } catch(e) {}
             }
+
+            const curStg = cloudTeam.currentStage || cloudTeam.currentstage || 'round1';
+            if (!parsedStageGroups || typeof parsedStageGroups !== 'object' || Object.keys(parsedStageGroups).length === 0) {
+              parsedStageGroups = Object.assign({}, existingLocal?.stageGroups || {});
+            }
+            parsedStageGroups['round1'] = parsedStageGroups['round1'] || { group: cloudGroup, slot: cloudSlot };
+            parsedStageGroups[curStg] = { group: cloudGroup, slot: cloudSlot };
 
             let parsedQualifiedRounds = null;
             if (cloudTeam.qualifiedRounds || cloudTeam.qualifiedrounds) {
@@ -324,7 +331,6 @@ class DataStore {
               parsedStageStatuses = Object.assign({}, existingLocal?.stageStatuses || {});
             }
             if (qualStatusStr) {
-              const curStg = cloudTeam.currentStage || cloudTeam.currentstage || (parsedQualifiedRounds[parsedQualifiedRounds.length - 1] || 'round1');
               parsedStageStatuses[curStg] = qualStatusStr;
             }
 
@@ -336,14 +342,14 @@ class DataStore {
               capName: cloudTeam.capName || cloudTeam.capname || existingLocal?.capName || 'Captain',
               capPhone: cloudTeam.capPhone || cloudTeam.capphone || existingLocal?.capPhone || '',
               capEmail: cloudTeam.capEmail || cloudTeam.capemail || existingLocal?.capEmail || '',
-              group: cloudTeam.group || existingLocal?.group || 'Group A',
-              slot: parseInt(cloudTeam.slot || existingLocal?.slot) || 1,
+              group: cloudGroup,
+              slot: cloudSlot,
               status: cloudTeam.status || existingLocal?.status || 'Approved',
               qualificationStatus: qualStatusStr || 'Round 1 Competitor',
-              currentStage: cloudTeam.currentStage || cloudTeam.currentstage || (parsedQualifiedRounds[parsedQualifiedRounds.length - 1] || 'round1'),
+              currentStage: curStg,
               qualifiedRounds: parsedQualifiedRounds,
               stageStatuses: parsedStageStatuses,
-              stageGroups: parsedStageGroups || existingLocal?.stageGroups || { round1: { group: cloudTeam.group || 'Group A', slot: parseInt(cloudTeam.slot) || 1 } },
+              stageGroups: parsedStageGroups,
               players: typeof cloudTeam.players === 'string' ? JSON.parse(cloudTeam.players) : (cloudTeam.players || existingLocal?.players || [])
             };
           });

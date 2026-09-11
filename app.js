@@ -1025,6 +1025,11 @@ function initAdminPanel() {
         showToast(`Team transferred to ${targetGroup} - Slot #${targetSlot} for stage ${currentStage.toUpperCase()}!`, 'success');
         renderAdminGroupsGrid(currentStage);
         populateTeamTransferDropdown(currentStage);
+        renderAdminTeamsTable();
+        renderPublicGroups();
+        renderConfirmedTeamsGallery();
+        renderQualifiedTeamsHub();
+        renderPublicStandings();
       }
     });
   }
@@ -1057,6 +1062,10 @@ function initAdminPanel() {
       renderAdminGroupsGrid(currentStage);
       populateTeamTransferDropdown(currentStage);
       renderAdminTeamsTable();
+      renderPublicGroups();
+      renderConfirmedTeamsGallery();
+      renderQualifiedTeamsHub();
+      renderPublicStandings();
     });
   }
 
